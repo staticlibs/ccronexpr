@@ -1,0 +1,3 @@
+[submodule "cmake"]
+	path = cmake
+	url = https://staticlibs@bitbucket.org/staticlibs/cmake.git
