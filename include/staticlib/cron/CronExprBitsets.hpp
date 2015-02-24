@@ -73,21 +73,29 @@ public:
 
         ...
          */
-        auto calendar = std::localtime(&date);
-        auto original = mktime(calendar);
+        auto calendar = std::gmtime(&date);
+        auto original = mkgmtime(calendar);
         
         do_next(calendar, calendar->tm_year);
 
-        if (std::mktime(calendar) == original) {
+        if (mkgmtime(calendar) == original) {
             // We arrived at the original timestamp - round up to the next whole second and try again...
             add_to_field(calendar, CalendarField::SECOND, 1);
             do_next(calendar, calendar->tm_year);
         }
 
-        return std::mktime(calendar);
+        return mkgmtime(calendar);
     }
 
-private:    
+private:
+// http://stackoverflow.com/a/22557778    
+    time_t mkgmtime(struct tm* tm) {
+#if defined(_WIN32)
+        return _mkgmtime(tm);
+#else
+        return timegm(tm);
+#endif
+    }
     
     std::string to_bitstring(std::vector<bool> bits) {
         auto res = std::string{};
@@ -203,7 +211,7 @@ private:
         case CalendarField::MONTH: calendar->tm_mon = 0; break;
         case CalendarField::YEAR: calendar->tm_year = 0; break;
         }
-        mktime(calendar);
+        mkgmtime(calendar);
     }
     
     void reset(std::tm* calendar, const std::vector<CalendarField>& fields) {
@@ -217,12 +225,12 @@ private:
         case CalendarField::SECOND: calendar->tm_sec = calendar->tm_sec + val; break;
         case CalendarField::MINUTE: calendar->tm_min = calendar->tm_min + val; break;
         case CalendarField::HOUR_OF_DAY: calendar->tm_hour = calendar->tm_hour + val; break;
-        case CalendarField::DAY_OF_WEEK: // mktime ignores this field
+        case CalendarField::DAY_OF_WEEK: // mkgmtime ignores this field
         case CalendarField::DAY_OF_MONTH: calendar->tm_mday = calendar->tm_mday + val; break;
         case CalendarField::MONTH: calendar->tm_mon = calendar->tm_mon + val; break;
         case CalendarField::YEAR: calendar->tm_year = calendar->tm_year + val; break;
         }
-        mktime(calendar);
+        mkgmtime(calendar);
     }
 
     void set_field(std::tm* calendar, CalendarField field, int32_t val) {
@@ -235,7 +243,7 @@ private:
         case CalendarField::MONTH: calendar->tm_mon = val; break;
         case CalendarField::YEAR: calendar->tm_year = val; break;
         }
-        mktime(calendar);
+        mkgmtime(calendar);
     }
 
     int32_t next_set_bit(const std::vector<bool>& bits, uint32_t from_index) {
