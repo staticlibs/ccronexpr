@@ -23,11 +23,17 @@ void replace_ordinals_test() {
     assert(replace_ordinals("* * * * FEB-MAY *", MONTHS) == "* * * * 2-5 *");
 }
 
+void test_parse() {
+    auto parsed = parse("0 30 * 30 1/3 ?");
+    std::cout << parsed.to_string() << std::endl;
+}
+
 } // namespace
 
 int main() {
     split_str_test();
     replace_ordinals_test();
+    test_parse();
 
     return 0;
 }

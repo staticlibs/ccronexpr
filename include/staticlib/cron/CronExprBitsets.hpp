@@ -8,20 +8,21 @@
 #ifndef CRONEXPRBITSETS_HPP
 #define	CRONEXPRBITSETS_HPP
 
+#include <vector>
 #include <string>
 
 
 class CronExprBitsets {
-    std::string seconds;
-    std::string minutes;
-    std::string hours;
-    std::string days_of_week;
-    std::string days_of_month;
-    std::string months;
+    std::vector<bool> seconds;
+    std::vector<bool> minutes;
+    std::vector<bool> hours;
+    std::vector<bool> days_of_week;
+    std::vector<bool> days_of_month;
+    std::vector<bool> months;
     
 public:
-    CronExprBitsets(std::string seconds, std::string minutes, std::string hours, std::string days_of_week,
-            std::string days_of_month, std::string months) :
+    CronExprBitsets(std::vector<bool> seconds, std::vector<bool> minutes, std::vector<bool> hours, 
+            std::vector<bool> days_of_week, std::vector<bool> days_of_month, std::vector<bool> months) :
     seconds(std::move(seconds)),
     minutes(std::move(minutes)),
     hours(std::move(hours)),
@@ -31,14 +32,23 @@ public:
     
     std::string to_string() {
         std::string sb{};
-        sb.append(seconds).push_back('\n');
-        sb.append(minutes).push_back('\n');
-        sb.append(hours).push_back('\n');
-        sb.append(days_of_week).push_back('\n');
-        sb.append(days_of_month).push_back('\n');
-        sb.append(months);
+        sb.append(to_bitstring(seconds)).push_back('\n');
+        sb.append(to_bitstring(minutes)).push_back('\n');
+        sb.append(to_bitstring(hours)).push_back('\n');
+        sb.append(to_bitstring(days_of_week)).push_back('\n');
+        sb.append(to_bitstring(days_of_month)).push_back('\n');
+        sb.append(to_bitstring(months));
         return sb;
     }
+    
+private:
+    std::string to_bitstring(std::vector<bool> bits) {
+        auto res = std::string{};
+        for (auto b : bits) {
+            res.push_back(b ? '1' : '0');
+        }
+        return res;
+    }    
 };
 
 #endif	/* CRONEXPRBITSETS_HPP */
