@@ -13,6 +13,7 @@
 #include <climits>
 #include <cstring>
 #include <cmath>
+#include <cassert>
 
 #include "staticlib/cron/CronExprParser.hpp"
 
@@ -89,12 +90,50 @@ void to_upper(char* str) {
     }
 }
 
-void replace_all(std::string& str, const std::string& from, const std::string& to) {
-    std::string::size_type start_pos = 0;
-    while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length();
+// You must free the result if result is non-NULL.
+
+char* str_replace(char *orig, const char *rep, const char *with) {
+    char *result; // the return string
+    char *ins; // the next insert point
+    char *tmp; // varies
+    int len_rep; // length of rep
+    int len_with; // length of with
+    int len_front; // distance between rep and end of last rep
+    int count; // number of replacements
+
+//    if (!orig)
+//        return NULL;
+//    if (!rep)
+//        rep = "";
+    len_rep = strlen(rep);
+//    if (!with)
+//        with = "";
+    len_with = strlen(with);
+
+    ins = orig;
+    for (count = 0; (tmp = strstr(ins, rep)); ++count) {
+        ins = tmp + len_rep;
     }
+
+    // first time through the loop, all the variable are set correctly
+    // from here on,
+    //    tmp points to the end of the result string
+    //    ins points to the next occurrence of rep in orig
+    //    orig points to the remainder of orig after "end of rep"
+    tmp = result = (char*) malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+    if (!result)
+        return NULL;
+
+    while (count--) {
+        ins = strstr(orig, rep);
+        len_front = ins - orig;
+        tmp = strncpy(tmp, orig, len_front) + len_front;
+        tmp = strcpy(tmp, with) + len_with;
+        orig += len_front + len_rep; // move to next "end of rep"
+    }
+    strcpy(tmp, orig);
+    return result;
 }
 
 char* to_string(int num) {
@@ -124,35 +163,110 @@ unsigned int parse_uint32(const char* str) {
 
 } // namespace
 
+int is_blank(char* st) {
+    size_t len = strlen(st);
+    for(size_t i = 0; i < len; i++) {
+        if(!isspace(st[i])) return 0;
+    }
+    return 1;
+}
 
-
-std::vector<std::string> split_str(std::string str, char del) {
-    auto res = std::vector<std::string>{};
-    auto cur = std::string{};
-    for (auto ch : str) {
-        if (del == ch) {
-            if (cur.length() > 0) {
-                // copy here
-                res.push_back(cur);
-                cur.clear();
-            }
-        } else if (!std::isspace(ch)) {
-            cur.push_back(ch);
+char* trim(char* str) {
+    size_t len = strlen(str);
+    char* out = (char*) malloc(len+1);
+    memset(out, 0, len+1);
+    size_t j = 0;
+    for(size_t i = 0; i < len; i++) {
+        if(!isspace(str[i])) {
+            out[j++] = str[i];
         }
     }
-    // tail
-    if (cur.length() > 0) {
-        // copy here
-        res.push_back(cur);
+    return out;
+}
+
+
+std::vector<std::string> split_str(std::string pstr, char del) {
+//    size_t len = 0;
+//    char** splitted = str_split(&str.front(), del, &len);
+//    auto res = std::vector<std::string>{};
+//    res.reserve(len);
+//    for (size_t i = 0; splitted[i]; i++) {
+//        res.push_back(splitted[i]);
+//    }
+//    return res;
+  
+    int accum = 0;
+    size_t len = 0;
+    char* str = &pstr.front();
+    size_t stlen = strlen(str);
+    for(size_t i = 0; i < stlen; i++) {
+        if (del == str[i]) {
+            if (accum > 0) {
+                len += 1;
+                accum = 0;
+            }
+        } else if (!isspace(str[i])) {
+            accum += 1;
+        }
     }
-    return res;
+    if (accum > 0) {
+        len += 1;
+    }
+    char** res = (char**) malloc(len*sizeof(char*));
+    char* buf = (char*) malloc(stlen + 1);
+    memset(buf, 0, stlen + 1);
+    size_t ri = 0;
+    size_t bi = 0;
+    for (size_t i = 0; i < stlen; i++) {
+        if (del == str[i]) {
+            if (bi > 0) {
+                res[ri++] = trim(buf);
+                memset(buf, 0, stlen + 1);
+                bi = 0;
+            }
+        } else if (!isspace(str[i])) {
+            buf[bi++] = str[i];
+            bi += 1;
+        }
+    }
+    if (bi > 0) {
+        res[ri++] = trim(buf);
+    }
+    
+    
+    auto vec = std::vector<std::string>{};
+    vec.reserve(len);
+    for (size_t i = 0; i < len; i++) {
+        vec.push_back(res[i]);
+    }
+    return vec;
+    
+//    auto res = std::vector<std::string>{};
+//    auto cur = std::string{};
+//    for (auto ch : str) {
+//        if (del == ch) {
+//            if (cur.length() > 0) {
+//                // copy here
+//                res.push_back(cur);
+//                cur.clear();
+//            }
+//        } else if (!std::isspace(ch)) {
+//            cur.push_back(ch);
+//        }
+//    }
+//    // tail
+//    if (cur.length() > 0) {
+//        // copy here
+//        res.push_back(cur);
+//    }
+//    return res;
 }
 
 std::string replace_ordinals(std::string value, const std::vector<std::string>& arr) {
     auto res = value;
     for (std::vector<std::string>::size_type i = 0; i < arr.size(); i++) {
         auto replacement = std::string(to_string(i));
-        replace_all(res, arr[i], replacement);
+        res = str_replace(&res.front(), arr[i].c_str(), replacement.c_str());
     }
     return res;
 }
