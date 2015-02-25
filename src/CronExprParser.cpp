@@ -11,8 +11,43 @@
 #include <sstream>
 #include <cerrno>
 #include <climits>
+#include <cstring>
 
 #include "staticlib/cron/CronExprParser.hpp"
+
+int crons_equal(CronExprBitsets* cr1, CronExprBitsets* cr2) {
+    for (int i = 0; i < MAX_SECONDS; i++) {
+        if (cr1->seconds[i] != cr2->seconds[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_MINUTES; i++) {
+        if (cr1->minutes[i] != cr2->minutes[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_HOURS; i++) {
+        if (cr1->hours[i] != cr2->hours[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_DAYS_OF_WEEK; i++) {
+        if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_DAYS_OF_MONTH; i++) {
+        if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_MONTHS; i++) {
+        if (cr1->months[i] != cr2->months[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
 
 namespace { // anonymous
 
@@ -151,16 +186,16 @@ std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_
     return res;
 }
 
-std::vector<bool> set_number_hits(std::string value, uint32_t min, uint32_t max) {
-    auto bits = std::vector<bool>{};
-    bits.resize(max);
+char* set_number_hits(std::string value, uint32_t min, uint32_t max) {
+    char* bits = (char*) malloc(max);
+    memset(bits, 0, max);
     std::vector<std::string> fields = split_str(value, ',');
     for (auto& field : fields) {
         if (std::string::npos == field.find('/')) {
             // Not an incrementer so it must be a range (possibly empty)
             auto range = get_range(field, min, max);
             for (uint32_t i = range.first; i <= range.second; i++) {
-                bits[i] = true;
+                bits[i] = 1;
             }
         } else {
             std::vector<std::string> split = split_str(field, '/');
@@ -173,17 +208,16 @@ std::vector<bool> set_number_hits(std::string value, uint32_t min, uint32_t max)
             }
             auto delta = parse_uint32(split[1]);
             for (uint32_t i = range.first; i <= range.second; i += delta) {
-                bits[i] = true;
+                bits[i] = 1;
             }
         }
     }
     return bits;
 }
 
-std::vector<bool> set_months(std::string value) {
+char* set_months(std::string value) {
     uint32_t max = 12;
-    auto bits = std::vector<bool>{};
-    bits.resize(max);
+    char* bits = (char*) malloc(MAX_MONTHS);
     to_upper(value);
     std::string replaced = replace_ordinals(value, MONTHS);
     // Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set
@@ -191,25 +225,24 @@ std::vector<bool> set_months(std::string value) {
     // ... and then rotate it to the front of the months
     for (uint32_t i = 1; i <= max; i++) {
         if (months[i]) {
-            bits[i - 1] = true;
+            bits[i - 1] = 1;
         }
     }
     return bits;
 }
 
-std::vector<bool> set_days(std::string field, int max) {
+char* set_days(std::string field, int max) {
     if ("?" == field) {
         field = "*";
     }
     return set_number_hits(field, 0, max);
 }
 
-std::vector<bool> set_days_of_month(std::string field) {
-    int max = 31;
+char* set_days_of_month(std::string field) {
     // Days of month start with 1 (in Cron and Calendar) so add one
-    auto bits = set_days(field, max + 1);
+    auto bits = set_days(field, MAX_DAYS_OF_MONTH);
     // ... and remove it from the front
-    bits[0] = false;
+    bits[0] = 0;
     return bits;
 }
 

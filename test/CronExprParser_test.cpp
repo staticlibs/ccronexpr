@@ -59,7 +59,7 @@ void check_next(std::string pattern, std::string initial, std::string expected) 
 void check_same(std::string expr1, std::string expr2) {
     auto parsed1 = parse(expr1);
     auto parsed2 = parse(expr2);
-    assert(parsed1.to_string() == parsed2.to_string());
+    assert(crons_equal(&parsed1, &parsed2));
 }
 
 void check_calc_invalid() {
@@ -80,8 +80,8 @@ void check_calc_invalid() {
 void check_expr_invalid(std::string expr) {
     bool thrown = false;
     try {
-        auto parsed = parse(expr);
-        std::cout << parsed.to_string() << std::endl; 
+        parse(expr);
+//        std::cout << parsed.to_string() << std::endl; 
     } catch (const std::exception& e) {
         thrown = true;
     }

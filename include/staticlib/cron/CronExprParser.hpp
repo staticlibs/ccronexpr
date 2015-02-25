@@ -24,7 +24,6 @@ std::vector<std::string> split_str(std::string str, char delimiter);
 
 std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_t max);
 
-std::vector<bool> set_number_hits(std::string value, uint32_t min, uint32_t max);
 
 #endif	/* CRONEXPRPARSER_HPP */
 
