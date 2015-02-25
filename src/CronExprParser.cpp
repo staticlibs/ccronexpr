@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <climits>
 #include <cstring>
+#include <cmath>
 
 #include "staticlib/cron/CronExprParser.hpp"
 
@@ -82,11 +83,10 @@ public:
 };
 
 
-std::string& to_upper(std::string& str) {
-    for (std::string::size_type i = 0; i < str.length(); i++) {
-        str[i] = std::toupper(str[i]);
+void to_upper(char* str) {
+    for (int i = 0; '\0' != str[i]; i++) {
+        str[i] = toupper(str[i]);
     }
-    return str;
 }
 
 void replace_all(std::string& str, const std::string& from, const std::string& to) {
@@ -97,27 +97,29 @@ void replace_all(std::string& str, const std::string& from, const std::string& t
     }
 }
 
-// not all C++11 compilers support it
-template<typename T>
-std::string to_string(T t) {
-    std::stringstream ss{};
-    ss << t;
-    return ss.str();
+char* to_string(int num) {
+//    int len = (int) ((ceil(log10(num)) + 2) * sizeof (char));
+    // todo
+    char* str = (char*) malloc(10);
+    sprintf(str, "%d", num);
+    return str;
+//    std::stringstream ss{};
+//    ss << t;
+//    return ss.str();
 }
 
 // workaround for android
-uint32_t parse_uint32(const std::string& str) {
-    auto cstr = str.c_str();
+unsigned int parse_uint32(const char* str) {
     char* endptr;
     errno = 0;
-    auto l = strtoll(cstr, &endptr, 0);
-    if (errno == ERANGE || cstr + str.length() != endptr) {
+    auto l = strtoll(str, &endptr, 0);
+    if (errno == ERANGE || *endptr != '\0') {
         throw CronParseException(std::string("Cannot parse uint32_t from string:[]"));
     }
     if (l < 0 || l > UINT_MAX) {
         throw CronParseException(std::string("Value overflow for uint32_t from string:[]"));
     }
-    return static_cast<uint32_t> (l);
+    return (unsigned int) l;
 }
 
 } // namespace
@@ -149,7 +151,7 @@ std::vector<std::string> split_str(std::string str, char del) {
 std::string replace_ordinals(std::string value, const std::vector<std::string>& arr) {
     auto res = value;
     for (std::vector<std::string>::size_type i = 0; i < arr.size(); i++) {
-        auto replacement = to_string(i);
+        auto replacement = std::string(to_string(i));
         replace_all(res, arr[i], replacement);
     }
     return res;
@@ -161,7 +163,7 @@ std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_
         res.first = min;
         res.second = max - 1;
     } else if (std::string::npos == field.find('-')) {
-        auto val = parse_uint32(field);
+        auto val = parse_uint32(field.c_str());
         res.first = val;
         res.second = val;
     } else {
@@ -170,8 +172,8 @@ std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_
             throw CronParseException("Range has more than two fields: '" +
                     field + "' in expression \"" + "this.expression" + "\"");
         }
-        res.first = parse_uint32(parts[0]);
-        res.second = parse_uint32(parts[1]);
+        res.first = parse_uint32(parts[0].c_str());
+        res.second = parse_uint32(parts[1].c_str());
     }
     if (res.first >= max || res.second >= max) {
         throw std::exception();
@@ -206,7 +208,7 @@ char* set_number_hits(std::string value, uint32_t min, uint32_t max) {
             if (std::string::npos == split[0].find("-")) {
                 range.second = max - 1;
             }
-            auto delta = parse_uint32(split[1]);
+            auto delta = parse_uint32(split[1].c_str());
             for (uint32_t i = range.first; i <= range.second; i += delta) {
                 bits[i] = 1;
             }
@@ -218,7 +220,8 @@ char* set_number_hits(std::string value, uint32_t min, uint32_t max) {
 char* set_months(std::string value) {
     uint32_t max = 12;
     char* bits = (char*) malloc(MAX_MONTHS);
-    to_upper(value);
+    memset(bits, 0, MAX_MONTHS);
+    to_upper(&value.front());
     std::string replaced = replace_ordinals(value, MONTHS);
     // Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set
     auto months = set_number_hits(replaced, 1, max + 1);
@@ -256,7 +259,7 @@ CronExprBitsets parse(std::string expression) {
     auto seconds = set_number_hits(fields[0], 0, 60);
     auto minutes = set_number_hits(fields[1], 0, 60);
     auto hours = set_number_hits(fields[2], 0, 24);
-    to_upper(fields[5]);
+    to_upper(&fields[5].front());
     auto days_of_week = set_days(replace_ordinals(fields[5], DAYS), 8);
     if (days_of_week[7]) {
         // Sunday can be represented as 0 or 7

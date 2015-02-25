@@ -18,11 +18,6 @@ const std::vector<std::string> MONTHS{"FOO", "JAN", "FEB", "MAR", "APR", "MAY", 
 
 CronExprBitsets parse(std::string expression);
 
-std::string replace_ordinals(std::string value, const std::vector<std::string>& arr);
-
-std::vector<std::string> split_str(std::string str, char delimiter);
-
-std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_t max);
 
 
 #endif	/* CRONEXPRPARSER_HPP */
