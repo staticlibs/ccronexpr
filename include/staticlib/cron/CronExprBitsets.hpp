@@ -145,7 +145,8 @@ private:
         uint32_t update_month = find_next(this->months, month, calendar, CalendarField::MONTH, CalendarField::YEAR, resets);
         if (month != update_month) {
             if (calendar->tm_year - dot > 4) {
-                throw "Invalid cron expression \" this.expression\" led to runaway search for next trigger";
+                throw std::exception();
+//                throw "Invalid cron expression \" this.expression\" led to runaway search for next trigger";
             }
             do_next(calendar, dot);
         }

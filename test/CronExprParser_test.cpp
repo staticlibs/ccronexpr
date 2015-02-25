@@ -56,6 +56,38 @@ void check_next(std::string pattern, std::string initial, std::string expected) 
     free(buffer);
 }
 
+void check_same(std::string expr1, std::string expr2) {
+    auto parsed1 = parse(expr1);
+    auto parsed2 = parse(expr2);
+    assert(parsed1.to_string() == parsed2.to_string());
+}
+
+void check_calc_invalid() {
+    auto parsed = parse("0 0 0 31 6 *");
+    std::tm calinit_val = {};
+    auto calinit = &calinit_val;
+    strptime("2012-07-01_09:53:50", DATE_FORMAT, calinit);
+    time_t dateinit = timegm(calinit);
+    bool thrown = false;
+    try {
+        parsed.next(dateinit);
+    } catch (const std::exception& e) {
+        thrown = true;
+    }
+    assert(thrown);
+}
+
+void check_expr_invalid(std::string expr) {
+    bool thrown = false;
+    try {
+        auto parsed = parse(expr);
+        std::cout << parsed.to_string() << std::endl; 
+    } catch (const std::exception& e) {
+        thrown = true;
+    }
+    assert(thrown);
+}
+
 void test_expr() {
 //    (void) check_next;
     check_next("*/15 * 1-4 * * *", "2012-07-01_09:53:50", "2012-07-02_01:00:00");
@@ -109,6 +141,9 @@ void test_expr() {
     check_next("0 0 0 29 2 *", "2008-02-29_00:00:00", "2012-02-29_00:00:00");
     check_next("0 0 7 ? * MON-FRI", "2009-09-26_00:42:55", "2009-09-28_07:00:00");
     check_next("0 0 7 ? * MON-FRI", "2009-09-28_07:00:00", "2009-09-29_07:00:00");
+    check_next("0 30 23 30 1/3 ?", "2010-12-30_00:00:00", "2011-01-30_23:30:00");
+    check_next("0 30 23 30 1/3 ?", "2011-01-30_23:30:00", "2011-04-30_23:30:00");
+    check_next("0 30 23 30 1/3 ?", "2011-04-30_23:30:00", "2011-07-30_23:30:00");
     
     
 //    auto buffer = (char*) malloc(21);
@@ -124,6 +159,32 @@ void test_expr() {
     
 }
 
+void test_parse() {
+    check_same("* * * 2 * *", "* * * 2 * ?");
+    check_same("57,59 * * * * *", "57/2 * * * * *");
+    check_same("1,3,5 * * * * *", "1-6/2 * * * * *");
+    check_same("* * 4,8,12,16,20 * * *", "* * 4/4 * * *");
+    check_same("* * * * * 0-6", "* * * * * TUE,WED,THU,FRI,SAT,SUN,MON");
+    check_same("* * * * * 0", "* * * * * SUN");
+    check_same("* * * * * 0", "* * * * * 7");
+    check_same("* * * * 1-12 *", "* * * * FEB,JAN,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC *");
+    check_same("* * * * 2 *", "* * * * Feb *");
+    check_same("*  *  * *  1 *", "* * * * 1 *");
+    
+    check_expr_invalid("77 * * * * *");
+    check_expr_invalid("44-77 * * * * *");
+    check_expr_invalid("* 77 * * * *");
+    check_expr_invalid("* 44-77 * * * *");
+    check_expr_invalid("* * 27 * * *");
+    check_expr_invalid("* * 23-28 * * *");
+    check_expr_invalid("* * * 45 * *");
+    check_expr_invalid("* * * 28-45 * *");
+    check_expr_invalid("0 0 0 25 13 ?");
+    check_expr_invalid("0 0 0 25 0 ?");
+    check_expr_invalid("0 0 0 32 12 ?");
+    check_expr_invalid("* * * * 11-13 *");
+}
+
 } // namespace
 
 int main() {
@@ -131,6 +192,8 @@ int main() {
 //    replace_ordinals_test();
 //    test_parse();
     test_expr();
+    test_parse();
+    check_calc_invalid();
 
     return 0;
 }

@@ -121,30 +121,34 @@ std::string replace_ordinals(std::string value, const std::vector<std::string>& 
 }
 
 std::pair<uint32_t, uint32_t> get_range(std::string field, uint32_t min, uint32_t max) {
+    auto res = std::pair<uint32_t, uint32_t>{};
     if ("*" == field) {
-        return {min, max -1};
-    }
-    if (std::string::npos == field.find('-')) {
+        res.first = min;
+        res.second = max - 1;
+    } else if (std::string::npos == field.find('-')) {
         auto val = parse_uint32(field);
-        return { val, val };
+        res.first = val;
+        res.second = val;
     } else {
         auto parts = split_str(field, '-');
         if (parts.size() > 2) {
             throw CronParseException("Range has more than two fields: '" +
                     field + "' in expression \"" + "this.expression" + "\"");
         }
-        return { parse_uint32(parts[0]), parse_uint32(parts[1]) };
+        res.first = parse_uint32(parts[0]);
+        res.second = parse_uint32(parts[1]);
     }
-    // todo: checks
-//    if (result[0] >= max || result[1] >= max) {
+    if (res.first >= max || res.second >= max) {
+        throw std::exception();
 //        throw new IllegalArgumentException("Range exceeds maximum (" + max + "): '" +
 //                field + "' in expression \"" + "this.expression" + "\"");
-//    }
-//    if (result[0] < min || result[1] < min) {
+    }
+    if (res.first < min || res.second < min) {
+        throw std::exception();
 //        throw new IllegalArgumentException("Range less than minimum (" + min + "): '" +
 //                field + "' in expression \"" + "this.expression" + "\"");
-//    }
-//    return result;
+    }
+    return res;
 }
 
 std::vector<bool> set_number_hits(std::string value, uint32_t min, uint32_t max) {
