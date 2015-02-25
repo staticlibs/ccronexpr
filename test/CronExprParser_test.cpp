@@ -5,7 +5,8 @@
  * Created on February 24, 2015, 9:36 AM
  */
 
-#include <iostream>
+
+
 #include <cassert>
 #include <ctime>
 #include <cstdlib>
@@ -15,7 +16,11 @@
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
+// todo: removeme
+#include <string>
+
 namespace { // anonymous
+
 
 //void split_str_test() {
 //    assert(split_str("* * *", ' ') == (std::vector<std::string>{"*", "*", "*"}));
@@ -34,7 +39,7 @@ namespace { // anonymous
 //}
 
 void check_next(std::string pattern, std::string initial, std::string expected) {
-    auto parsed = parse(pattern);
+    auto parsed = parse(pattern.c_str());
     std::tm calinit_val = {};
     auto calinit = &calinit_val;
     auto res = strptime(initial.c_str(), DATE_FORMAT, calinit);
@@ -57,8 +62,8 @@ void check_next(std::string pattern, std::string initial, std::string expected) 
 }
 
 void check_same(std::string expr1, std::string expr2) {
-    auto parsed1 = parse(expr1);
-    auto parsed2 = parse(expr2);
+    auto parsed1 = parse(expr1.c_str());
+    auto parsed2 = parse(expr2.c_str());
     assert(crons_equal(&parsed1, &parsed2));
 }
 
@@ -80,7 +85,7 @@ void check_calc_invalid() {
 void check_expr_invalid(std::string expr) {
     bool thrown = false;
     try {
-        parse(expr);
+        parse(expr.c_str());
 //        std::cout << parsed.to_string() << std::endl; 
     } catch (const std::exception& e) {
         thrown = true;

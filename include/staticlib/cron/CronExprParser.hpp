@@ -8,15 +8,11 @@
 #ifndef CRONEXPRPARSER_HPP
 #define	CRONEXPRPARSER_HPP
 
-#include <string>
-#include <vector>
-
 #include "staticlib/cron/CronExprBitsets.hpp"
 
-const std::vector<std::string> DAYS{"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-const std::vector<std::string> MONTHS{"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 
-CronExprBitsets parse(std::string expression);
+
+CronExprBitsets parse(const char* expression);
 
 
 

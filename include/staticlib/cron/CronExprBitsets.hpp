@@ -9,6 +9,9 @@
 #define	CRONEXPRBITSETS_HPP
 
 #include <ctime>
+#include <cstdlib>
+
+#include <exception>
 
 
 #define MAX_SECONDS 60
