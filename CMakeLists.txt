@@ -11,6 +11,7 @@ project ( staticlib_cron C )
 include ( ${CMAKE_CURRENT_LIST_DIR}/cmake/CMakeLists_common.cmake )
 
 # build steps
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wextra" CACHE INTERNAL "" )
 set ( ${PROJECT_NAME}_INCLUDES ${CMAKE_CURRENT_LIST_DIR} )
 add_library ( ${PROJECT_NAME} STATIC ${CMAKE_CURRENT_LIST_DIR}/ccronexpr.c )
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )
@@ -20,7 +21,8 @@ enable_testing ( )
 add_executable ( ccronexpr_test ${CMAKE_CURRENT_LIST_DIR}/ccronexpr_test.c )
 target_include_directories ( ccronexpr_test BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )
 target_link_libraries ( ccronexpr_test ${PROJECT_NAME} )
-add_test ( ccronexpr_test ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ccronexpr_test )
+add_test ( ccronexpr_test ${CMAKE_MEMORYCHECK_COMMAND} ${CMAKE_MEMORYCHECK_COMMAND_OPTIONS} 
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ccronexpr_test )
 
 # export headers
 set ( ${PROJECT_NAME}_INCLUDES ${${PROJECT_NAME}_INCLUDES} CACHE INTERNAL "" )

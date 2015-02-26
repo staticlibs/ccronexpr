@@ -42,9 +42,11 @@ typedef struct {
 
 cron_expr* cron_parse_expr(const char* expression, const char** error);
 
-time_t cron_next(cron_expr*, time_t date);
+time_t cron_next(cron_expr* expr, time_t date);
 
-time_t cron_next_local(cron_expr*, time_t date);
+time_t cron_next_local(cron_expr* expr, time_t date);
+
+void cron_expr_free(cron_expr* expr);
 
 
 

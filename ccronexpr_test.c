@@ -71,12 +71,15 @@ void check_next(const char* pattern, const char* initial, const char* expected) 
         assert(0);
     }
     free(buffer);
+    cron_expr_free(parsed);
 }
 
 void check_same(const char* expr1, const char* expr2) {
     cron_expr* parsed1 = cron_parse_expr(expr1, NULL);
     cron_expr* parsed2 = cron_parse_expr(expr2, NULL);
     assert(crons_equal(parsed1, parsed2));
+    cron_expr_free(parsed1);
+    cron_expr_free(parsed2);
 }
 
 void check_calc_invalid() {
@@ -87,6 +90,7 @@ void check_calc_invalid() {
     time_t dateinit = timegm(calinit);
     time_t res = cron_next(parsed, dateinit);
     assert(INVALID_INSTANT == res);
+    cron_expr_free(parsed);
 }
 
 void check_expr_invalid(const char* expr) {
@@ -96,7 +100,6 @@ void check_expr_invalid(const char* expr) {
 }
 
 void test_expr() {
-//    (void) check_next;
     check_next("*/15 * 1-4 * * *", "2012-07-01_09:53:50", "2012-07-02_01:00:00");
     check_next("*/15 * 1-4 * * *", "2012-07-01_09:53:00", "2012-07-02_01:00:00");
     check_next("0 */2 1-4 * * *", "2012-07-01_09:00:00", "2012-07-02_01:00:00");
@@ -150,20 +153,7 @@ void test_expr() {
     check_next("0 0 7 ? * MON-FRI", "2009-09-28_07:00:00", "2009-09-29_07:00:00");
     check_next("0 30 23 30 1/3 ?", "2010-12-30_00:00:00", "2011-01-30_23:30:00");
     check_next("0 30 23 30 1/3 ?", "2011-01-30_23:30:00", "2011-04-30_23:30:00");
-    check_next("0 30 23 30 1/3 ?", "2011-04-30_23:30:00", "2011-07-30_23:30:00");
-    
-    
-//    auto buffer = (char*) malloc(21);
-//    auto cur = std::time(nullptr);
-//    auto calinit = std::localtime(&cur);        
-//    strptime("2012-07-01_09:00:00", DATE_FORMAT, calinit);
-//    std::cout << calinit->tm_hour << std::endl;
-//    auto date = mktime(calinit);
-//    calinit = std::gmtime(&date);
-//    strftime(buffer, 20, DATE_FORMAT, calinit);
-//    std::cout << buffer << std::endl;
-//    std::cout << res << std::endl;
-    
+    check_next("0 30 23 30 1/3 ?", "2011-04-30_23:30:00", "2011-07-30_23:30:00");    
 }
 
 void test_parse() {
@@ -193,9 +183,6 @@ void test_parse() {
 }
 
 int main() {
-//    split_str_test();
-//    replace_ordinals_test();
-//    test_parse();
     test_expr();
     test_parse();
     check_calc_invalid();

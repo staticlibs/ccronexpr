@@ -20,6 +20,39 @@ const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 #define MONTHS_ARR_LEN 13
 
+void cron_expr_free(cron_expr* expr) {
+    if(!expr) return;
+    if (expr->seconds) {
+        free(expr->seconds);
+    }
+    if (expr->minutes) {
+        free(expr->minutes);
+    }
+    if (expr->hours) {
+        free(expr->hours);
+    }
+    if (expr->days_of_week) {
+        free(expr->days_of_week);
+    }
+    if (expr->days_of_month) {
+        free(expr->days_of_month);
+    }
+    if (expr->months) {
+        free(expr->months);
+    }
+    free(expr);
+}
+
+void free_splitted(char** splitted, size_t len) {
+    if(!splitted) return;
+    for(size_t i = 0; i < len; i++) {
+        if (splitted[i]) {
+            free(splitted[i]);
+        }
+    }  
+    free(splitted);
+}
+
 char* strdup(const char *s) {
     char *d = (char*) malloc(strlen(s) + 1); // Space for length plus nul
     if (d == NULL) return NULL; // No memory
@@ -153,6 +186,7 @@ static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
 }
 
 static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
+    int res = 0;
     int* resets = (int*) malloc(CF_ARR_LEN * sizeof (int));
     int* empty_list = (int*) malloc(CF_ARR_LEN * sizeof (int));
     for (int i = 0; i < CF_ARR_LEN; i++) {
@@ -171,8 +205,8 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     if (minute == update_minute) {
         push_to_fields_arr(resets, CF_MINUTE);
     } else {
-        int res = do_next(expr, calendar, dot);
-        if (res < 0) return res;
+        res = do_next(expr, calendar, dot);
+        if (res < 0) goto return_result;
     }
 
     unsigned int hour = calendar->tm_hour;
@@ -180,8 +214,8 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     if (hour == update_hour) {
         push_to_fields_arr(resets, CF_HOUR_OF_DAY);
     } else {
-        int res = do_next(expr, calendar, dot);
-        if (res < 0) return res;
+        res = do_next(expr, calendar, dot);
+        if (res < 0) goto return_result;
     }
 
     unsigned int day_of_week = calendar->tm_wday;
@@ -190,22 +224,26 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     if (day_of_month == update_day_of_month) {
         push_to_fields_arr(resets, CF_DAY_OF_MONTH);
     } else {
-        int res = do_next(expr, calendar, dot);
-        if (res < 0) return res;
+        res = do_next(expr, calendar, dot);
+        if (res < 0) goto return_result;
     }
 
     unsigned int month = calendar->tm_mon;
     unsigned int update_month = find_next(expr->months, MAX_MONTHS, month, calendar, CF_MONTH, CF_YEAR, resets);
     if (month != update_month) {
         if (calendar->tm_year - dot > 4) {
-            return -1;
-            //                throw std::exception();
-            //                throw "Invalid cron expression \" this.expression\" led to runaway search for next trigger";
+            res = -1;
+            goto return_result;
         }
-        int res = do_next(expr, calendar, dot);
-        if (res < 0) return res;
+        res = do_next(expr, calendar, dot);
+        if (res < 0) goto return_result;
     }
-    return 0;
+    goto return_result;
+    
+    return_result:
+        free(resets);
+        free(empty_list);
+        return res;
 }
 
 void to_upper(char* str) {
@@ -320,14 +358,27 @@ char** split_str(const char* str, char del, size_t* len_out) {
     if (bi > 0) {
         res[ri++] = strdup(buf);
     }
+    free(buf);
     *len_out = len;
     return res;
 }
 
 char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
-    char* res = value;
+    char* cur = value;
+    char* res = NULL;
+    int first = 1;
     for (size_t i = 0; i < arr_len; i++) {
-        res = str_replace(res, arr[i], to_string(i));
+        char* strnum = to_string(i);
+        // todo: check strnum and res
+        res = str_replace(cur, arr[i], strnum);
+        free(strnum);
+        if (!first) {
+            free(cur);
+        }        
+        cur = res;
+        if (first) {
+            first = 0;
+        }
     }
     return res;
 }
@@ -361,19 +412,23 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         char** parts = split_str(field, '-', &len);
         if (len > 2) {
             *error = "Specified range has more than two fields";
+            free_splitted(parts, len);
             return res;
         }
         int err = 0;
         res[0] = parse_uint32(parts[0], &err);
         if (err) {
             *error = "Unsigned integer parse error 2";
+            free_splitted(parts, len);
             return res;
         }
         res[1] = parse_uint32(parts[1], &err);
         if (err) {
             *error = "Unsigned integer parse error 3";
+            free_splitted(parts, len);
             return res;
         }
+        free_splitted(parts, len);
     }
     if (res[0] >= max || res[1] >= max) {
         *error = "Specified range exceeds maximum";
@@ -393,26 +448,32 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
     size_t len = 0;
     char** fields = split_str(value, ',', &len);
     for (size_t i = 0; i < len; i++) {
-        char* field = fields[i];
-        if (!has_char(field, '/')) {
+        if (!has_char(fields[i], '/')) {
             // Not an incrementer so it must be a range (possibly empty)
-            unsigned int* range = get_range(field, min, max, error);
+            unsigned int* range = get_range(fields[i], min, max, error);
             if (*error) {
-                return bits;
+                if (range) {
+                    free(range);
+                }
+                goto return_result;
             }
             for (unsigned int i = range[0]; i <= range[1]; i++) {
                 bits[i] = 1;
             }
+            free(range);
         } else {
             size_t len2 = 0;
-            char** split = split_str(field, '/', &len2);
+            char** split = split_str(fields[i], '/', &len2);
             if (len2 > 2) {
                 *error = "Incrementer has more than two fields";
-                return bits;
+                free_splitted(split, len2);
+                goto return_result;
             }
             unsigned int* range = get_range(split[0], min, max, error);
             if (*error) {
-                return bits;
+                free(range);
+                free_splitted(split, len2);
+                goto return_result;
             }
             if (!has_char(split[0], '-')) {
                 range[1] = max - 1;
@@ -421,15 +482,22 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
             unsigned int delta = parse_uint32(split[1], &err);
             if (err) {
                 *error = "Unsigned integer parse error 4";
-                return bits;
+                free(range);
+                free_splitted(split, len2);
+                goto return_result;
             }
             for (unsigned int i = range[0]; i <= range[1]; i += delta) {
                 bits[i] = 1;
             }
+            free_splitted(split, len2);
+            free(range);
         }
     }
-    *error = NULL;
-    return bits;
+    goto return_result;
+    
+    return_result:
+        free_splitted(fields, len);
+        return bits;
 }
 
 char* set_months(char* value, const char** error) {
@@ -440,7 +508,11 @@ char* set_months(char* value, const char** error) {
     char* replaced = replace_ordinals(value, MONTHS_ARR, MONTHS_ARR_LEN);
     // Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set
     char* months = set_number_hits(replaced, 1, max + 1, error);
+    free(replaced);
     if (*error) {
+        if (months) {
+            free(months);
+        }
         return bits;
     }
     // ... and then rotate it to the front of the months
@@ -449,6 +521,7 @@ char* set_months(char* value, const char** error) {
             bits[i - 1] = 1;
         }
     }
+    free(months);
     return bits;
 }
 
@@ -472,31 +545,53 @@ cron_expr* cron_parse_expr(const char* expression, const char** error) {
     if (!error) {
         error = &err_local;
     }
+    *error = NULL;
+    char* seconds = NULL;
+    char* minutes = NULL;
+    char* hours = NULL;
+    char* days_of_week = NULL;
+    char* days_of_month = NULL;
+    char* months = NULL;
     size_t len = 0;
     char** fields = split_str(expression, ' ', &len);
     if (len != 6) {
         *error = "Invalid number of fields, expression must consist of 6 fields";
-        return NULL;
+        goto return_res;
     }
-    char* seconds = set_number_hits(fields[0], 0, 60, error);
-    if (*error) return NULL;
-    char* minutes = set_number_hits(fields[1], 0, 60, error);
-    if (*error) return NULL;
-    char* hours = set_number_hits(fields[2], 0, 24, error);
-    if (*error) return NULL;
+    seconds = set_number_hits(fields[0], 0, 60, error);
+    if (*error) goto return_res;
+    minutes = set_number_hits(fields[1], 0, 60, error);
+    if (*error) goto return_res;
+    hours = set_number_hits(fields[2], 0, 24, error);
+    if (*error) goto return_res;
     to_upper(fields[5]);
-    char* days_of_week = set_days(replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN), 8, error);
-    if (*error) return NULL;
+    char* days_replaced = replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN);
+    days_of_week = set_days(days_replaced, 8, error);
+    free(days_replaced);
+    if (*error) goto return_res;
     if (days_of_week[7]) {
         // Sunday can be represented as 0 or 7
         days_of_week[0] = 1;
         days_of_week[7] = 0;
     }
-    char* days_of_month = set_days_of_month(fields[3], error);
-    if (*error) return NULL;
-    char* months = set_months(fields[4], error);
-    if (*error) return NULL;
+    days_of_month = set_days_of_month(fields[3], error);
+    if (*error) goto return_res;
+    months = set_months(fields[4], error);
+    if (*error) goto return_res;
 
+    goto return_res;
+    
+    return_res: 
+    free_splitted(fields, len);
+    if(*error) {
+        if(seconds) free(seconds);
+        if(minutes) free(minutes);
+        if(hours) free(hours);
+        if(days_of_week) free(days_of_week);
+        if(days_of_month) free(days_of_month);
+        if(months) free(months);
+        return NULL;
+    }
     cron_expr* res = (cron_expr*) malloc(sizeof (cron_expr));
     res->seconds = seconds;
     res->minutes = minutes;
@@ -504,8 +599,8 @@ cron_expr* cron_parse_expr(const char* expression, const char** error) {
     res->days_of_week = days_of_week;
     res->days_of_month = days_of_month;
     res->months = months;
-    *error = NULL;
     return res;
+
 }
 
 // todo
