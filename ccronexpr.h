@@ -8,8 +8,8 @@
 #ifndef CRONEXPRPARSER_HPP
 #define	CRONEXPRPARSER_HPP
 
-#include <ctime>
-#include <cstdlib>
+#include <time.h>
+#include <stdlib.h>
 
 #define MAX_SECONDS 60
 #define MAX_MINUTES 60

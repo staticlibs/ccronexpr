@@ -5,15 +5,15 @@
  * Created on February 24, 2015, 9:35 AM
  */
 
-#include <cctype>
-#include <cerrno>
-#include <climits>
-#include <cstring>
-#include <cmath>
-#include <cassert>
-#include <cstdio>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <string.h>
+#include <math.h>
+#include <assert.h>
+#include <stdio.h>
 
-#include "staticlib/cron/ccronexpr.hpp"
+#include "ccronexpr.h"
 
 const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 #define DAYS_ARR_LEN 7
@@ -55,7 +55,7 @@ static void push_to_fields_arr(int* arr, int fi) {
     }
 }
 
-static void add_to_field(tm* calendar, int field, int val) {
+static void add_to_field(struct tm* calendar, int field, int val) {
     switch (field) {
     case CF_SECOND: calendar->tm_sec = calendar->tm_sec + val; break;
     case CF_MINUTE: calendar->tm_min = calendar->tm_min + val; break;
@@ -71,7 +71,7 @@ static void add_to_field(tm* calendar, int field, int val) {
 /**
  * Reset the calendar setting all the fields provided to zero.
  */
-static void reset(tm* calendar, int field) {
+static void reset(struct tm* calendar, int field) {
     switch (field) {
     case CF_SECOND: calendar->tm_sec = 0; break;
     case CF_MINUTE: calendar->tm_min = 0; break;
@@ -84,7 +84,7 @@ static void reset(tm* calendar, int field) {
     mkgmtime(calendar);
 }
 
-static void reset(tm* calendar, int* fields) {
+static void reset_all(struct tm* calendar, int* fields) {
     for (int i = 0; i < CF_ARR_LEN; i++) {
         if (-1 != fields[i]) {
             reset(calendar, fields[i]);
@@ -92,7 +92,7 @@ static void reset(tm* calendar, int* fields) {
     }
 }
 
-static void set_field(tm* calendar, int field, int val) {
+static void set_field(struct tm* calendar, int field, int val) {
     switch (field) {
     case CF_SECOND: calendar->tm_sec = val; break;
     case CF_MINUTE: calendar->tm_min = val; break;
@@ -118,7 +118,7 @@ static void set_field(tm* calendar, int field, int val) {
  * ones of lower significance than the field of interest)
  * @return the value of the calendar field that is next in the sequence
  */
-static unsigned int find_next(char* bits, int max, unsigned int value, tm* calendar, int field,
+static unsigned int find_next(char* bits, int max, unsigned int value, struct tm* calendar, int field,
         int nextField, int* lower_orders) {
     int next_value = next_set_bit(bits, max, value);
     // roll over if needed
@@ -127,14 +127,14 @@ static unsigned int find_next(char* bits, int max, unsigned int value, tm* calen
         reset(calendar, field);
         next_value = next_set_bit(bits, max, 0);
     }
-    if (-1 == next_value || static_cast<unsigned int> (next_value) != value) {
+    if (-1 == next_value || (unsigned int) (next_value) != value) {
         set_field(calendar, field, next_value);
-        reset(calendar, lower_orders);
+        reset_all(calendar, lower_orders);
     }
     return next_value;
 }
 
-static unsigned int find_next_day(tm* calendar, char* days_of_month,
+static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
         unsigned int day_of_month, char* days_of_week, unsigned int day_of_week,
         int* resets) {
     unsigned int count = 0;
@@ -143,16 +143,16 @@ static unsigned int find_next_day(tm* calendar, char* days_of_month,
         add_to_field(calendar, CF_DAY_OF_MONTH, 1);
         day_of_month = calendar->tm_mday;
         day_of_week = calendar->tm_wday;
-        reset(calendar, resets);
+        reset_all(calendar, resets);
     }
-    if (count >= max) {
-        // todo
-        throw "Overflow in day for expression \"this.expression \"";
-    }
+    // todo: check if needed
+//    if (count >= max) {
+//        throw "Overflow in day for expression \"this.expression \"";
+//    }
     return day_of_month;
 }
 
-static int do_next(cron_expr* expr, tm* calendar, unsigned int dot) {
+static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     int* resets = (int*) malloc(CF_ARR_LEN * sizeof (int));
     int* empty_list = (int*) malloc(CF_ARR_LEN * sizeof (int));
     for (int i = 0; i < CF_ARR_LEN; i++) {
@@ -271,7 +271,7 @@ char* to_string(int num) {
 unsigned int parse_uint32(const char* str, int* errcode) {
     char* endptr;
     errno = 0;
-    auto l = strtoll(str, &endptr, 0);
+    long int l = strtol(str, &endptr, 0);
     if (errno == ERANGE || *endptr != '\0' || l < 0 || l > UINT_MAX) {
         *errcode = 1;
         return 0;
@@ -312,7 +312,7 @@ char** split_str(const char* str, char del, size_t* len_out) {
                 memset(buf, 0, stlen + 1);
                 bi = 0;
             }
-        } else if (!std::isspace(str[i])) {
+        } else if (!isspace(str[i])) {
             buf[bi++] = str[i];            
         }
     }
@@ -325,7 +325,7 @@ char** split_str(const char* str, char del, size_t* len_out) {
 }
 
 char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
-    auto res = value;
+    char* res = value;
     for (size_t i = 0; i < arr_len; i++) {
         res = str_replace(res, arr[i], to_string(i));
     }
@@ -349,7 +349,7 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         res[1] = max - 1;
     } else if (!has_char(field, '-')) {
         int err = 0;
-        auto val = parse_uint32(field, &err);
+        unsigned int val = parse_uint32(field, &err);
         if (err) {
             *error = "Unsigned integer parse error 1";
             return res;
@@ -396,7 +396,7 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
         char* field = fields[i];
         if (!has_char(field, '/')) {
             // Not an incrementer so it must be a range (possibly empty)
-            auto range = get_range(field, min, max, error);
+            unsigned int* range = get_range(field, min, max, error);
             if (*error) {
                 return bits;
             }
@@ -410,7 +410,7 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
                 *error = "Incrementer has more than two fields";
                 return bits;
             }
-            auto range = get_range(split[0], min, max, error);
+            unsigned int* range = get_range(split[0], min, max, error);
             if (*error) {
                 return bits;
             }
@@ -418,7 +418,7 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
                 range[1] = max - 1;
             }
             int err = 0;
-            auto delta = parse_uint32(split[1], &err);
+            unsigned int delta = parse_uint32(split[1], &err);
             if (err) {
                 *error = "Unsigned integer parse error 4";
                 return bits;
@@ -439,7 +439,7 @@ char* set_months(char* value, const char** error) {
     to_upper(value);
     char* replaced = replace_ordinals(value, MONTHS_ARR, MONTHS_ARR_LEN);
     // Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set
-    auto months = set_number_hits(replaced, 1, max + 1, error);
+    char* months = set_number_hits(replaced, 1, max + 1, error);
     if (*error) {
         return bits;
     }
@@ -461,7 +461,7 @@ char* set_days(char* field, int max, const char** error) {
 
 char* set_days_of_month(char* field, const char** error) {
     // Days of month start with 1 (in Cron and Calendar) so add one
-    auto bits = set_days(field, MAX_DAYS_OF_MONTH, error);
+    char* bits = set_days(field, MAX_DAYS_OF_MONTH, error);
     // ... and remove it from the front
     bits[0] = 0;
     return bits;
@@ -478,23 +478,23 @@ cron_expr* cron_parse_expr(const char* expression, const char** error) {
         *error = "Invalid number of fields, expression must consist of 6 fields";
         return NULL;
     }
-    auto seconds = set_number_hits(fields[0], 0, 60, error);
+    char* seconds = set_number_hits(fields[0], 0, 60, error);
     if (*error) return NULL;
-    auto minutes = set_number_hits(fields[1], 0, 60, error);
+    char* minutes = set_number_hits(fields[1], 0, 60, error);
     if (*error) return NULL;
-    auto hours = set_number_hits(fields[2], 0, 24, error);
+    char* hours = set_number_hits(fields[2], 0, 24, error);
     if (*error) return NULL;
     to_upper(fields[5]);
-    auto days_of_week = set_days(replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN), 8, error);
+    char* days_of_week = set_days(replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN), 8, error);
     if (*error) return NULL;
     if (days_of_week[7]) {
         // Sunday can be represented as 0 or 7
-        days_of_week[0] = true;
-        days_of_week[7] = false;
+        days_of_week[0] = 1;
+        days_of_week[7] = 0;
     }
-    auto days_of_month = set_days_of_month(fields[3], error);
+    char* days_of_month = set_days_of_month(fields[3], error);
     if (*error) return NULL;
-    auto months = set_months(fields[4], error);
+    char* months = set_months(fields[4], error);
     if (*error) return NULL;
 
     cron_expr* res = (cron_expr*) malloc(sizeof (cron_expr));
@@ -532,7 +532,7 @@ time_t cron_next(cron_expr* expr, time_t date) {
 
     ...
      */
-    tm* calendar = gmtime(&date);
+    struct tm* calendar = gmtime(&date);
     time_t original = mkgmtime(calendar);
 
     int res = do_next(expr, calendar, calendar->tm_year);

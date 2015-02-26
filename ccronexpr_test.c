@@ -5,13 +5,14 @@
  * Created on February 24, 2015, 9:36 AM
  */
 
-#include <cassert>
-#include <ctime>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
+#include <assert.h>
+#define __USE_XOPEN
+#include <time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-#include "staticlib/cron/ccronexpr.hpp"
+#include "ccronexpr.h"
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
@@ -51,23 +52,23 @@ int crons_equal(cron_expr* cr1, cron_expr* cr2) {
 
 void check_next(const char* pattern, const char* initial, const char* expected) {
     const char* err = NULL;
-    auto parsed = cron_parse_expr(pattern, &err);
-    tm calinit_val = {};
-    auto calinit = &calinit_val;
-    auto res = strptime(initial, DATE_FORMAT, calinit);
+    cron_expr* parsed = cron_parse_expr(pattern, &err);
+    struct tm calinit_val;
+    struct tm* calinit = &calinit_val;
+    char* res = strptime(initial, DATE_FORMAT, calinit);
     assert(res);
     time_t dateinit = timegm(calinit);
     assert(-1 != dateinit);
-    auto datenext = cron_next(parsed, dateinit);
-    auto calnext = std::gmtime(&datenext);
+    time_t datenext = cron_next(parsed, dateinit);
+    struct tm* calnext = gmtime(&datenext);
     assert(calnext);
-    auto buffer = (char*) malloc(21);
+    char* buffer = (char*) malloc(21);
     memset(buffer, 0, 21);
     strftime(buffer, 20, DATE_FORMAT, calnext);
     if(0 != strcmp(expected, buffer)) {
         puts(expected);
         puts(buffer);
-        assert(false);
+        assert(0);
     }
     free(buffer);
 }
@@ -79,9 +80,9 @@ void check_same(const char* expr1, const char* expr2) {
 }
 
 void check_calc_invalid() {
-    auto parsed = cron_parse_expr("0 0 0 31 6 *", NULL);
-    tm calinit_val = {};
-    auto calinit = &calinit_val;
+    cron_expr* parsed = cron_parse_expr("0 0 0 31 6 *", NULL);
+    struct tm calinit_val = {};
+    struct tm* calinit = &calinit_val;
     strptime("2012-07-01_09:53:50", DATE_FORMAT, calinit);
     time_t dateinit = timegm(calinit);
     time_t res = cron_next(parsed, dateinit);
