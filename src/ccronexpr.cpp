@@ -13,49 +13,195 @@
 #include <cassert>
 #include <cstdio>
 
-#include "staticlib/cron/CronExprParser.hpp"
+#include <exception>
+
+#include "staticlib/cron/ccronexpr.hpp"
 
 const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 #define DAYS_ARR_LEN 7
 const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 #define MONTHS_ARR_LEN 13
 
-int crons_equal(CronExprBitsets* cr1, CronExprBitsets* cr2) {
-    for (int i = 0; i < MAX_SECONDS; i++) {
-        if (cr1->seconds[i] != cr2->seconds[i]) {
-            return 0;
-        }
-    }
-    for (int i = 0; i < MAX_MINUTES; i++) {
-        if (cr1->minutes[i] != cr2->minutes[i]) {
-            return 0;
-        }
-    }
-    for (int i = 0; i < MAX_HOURS; i++) {
-        if (cr1->hours[i] != cr2->hours[i]) {
-            return 0;
-        }
-    }
-    for (int i = 0; i < MAX_DAYS_OF_WEEK; i++) {
-        if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
-            return 0;
-        }
-    }
-    for (int i = 0; i < MAX_DAYS_OF_MONTH; i++) {
-        if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
-            return 0;
-        }
-    }
-    for (int i = 0; i < MAX_MONTHS; i++) {
-        if (cr1->months[i] != cr2->months[i]) {
-            return 0;
-        }
-    }
-    return 1;
+// http://stackoverflow.com/a/22557778    
+static time_t mkgmtime(struct tm* tm) {
+#if defined(_WIN32)
+    return _mkgmtime(tm);
+#else
+    return timegm(tm);
+#endif
 }
 
-namespace { // anonymous
+static int next_set_bit(char* bits, int max, unsigned int from_index) {
+    for (int i = from_index; i < max; i++) {
+        if (bits[i]) return i;
+    }
+    return -1;
+}
 
+static void push_to_fields_arr(int* arr, int fi) {
+    for (int i = 0; i < CF_ARR_LEN; i++) {
+        if (arr[i] == fi) return;
+    }
+    for (int i = 0; i < CF_ARR_LEN; i++) {
+        if (-1 == arr[i]) {
+            arr[i] = fi;
+            return;
+        }
+    }
+}
+
+static void add_to_field(tm* calendar, int field, int val) {
+    switch (field) {
+    case CF_SECOND: calendar->tm_sec = calendar->tm_sec + val; break;
+    case CF_MINUTE: calendar->tm_min = calendar->tm_min + val; break;
+    case CF_HOUR_OF_DAY: calendar->tm_hour = calendar->tm_hour + val; break;
+    case CF_DAY_OF_WEEK: // mkgmtime ignores this field
+    case CF_DAY_OF_MONTH: calendar->tm_mday = calendar->tm_mday + val; break;
+    case CF_MONTH: calendar->tm_mon = calendar->tm_mon + val; break;
+    case CF_YEAR: calendar->tm_year = calendar->tm_year + val; break;
+    }
+    mkgmtime(calendar);
+}
+
+/**
+ * Reset the calendar setting all the fields provided to zero.
+ */
+static void reset(tm* calendar, int field) {
+    switch (field) {
+    case CF_SECOND: calendar->tm_sec = 0; break;
+    case CF_MINUTE: calendar->tm_min = 0; break;
+    case CF_HOUR_OF_DAY: calendar->tm_hour = 0; break;
+    case CF_DAY_OF_WEEK: calendar->tm_wday = 0; break;
+    case CF_DAY_OF_MONTH: calendar->tm_mday = 1; break;
+    case CF_MONTH: calendar->tm_mon = 0; break;
+    case CF_YEAR: calendar->tm_year = 0; break;
+    }
+    mkgmtime(calendar);
+}
+
+static void reset(tm* calendar, int* fields) {
+    for (int i = 0; i < CF_ARR_LEN; i++) {
+        if (-1 != fields[i]) {
+            reset(calendar, fields[i]);
+        }
+    }
+}
+
+static void set_field(tm* calendar, int field, int val) {
+    switch (field) {
+    case CF_SECOND: calendar->tm_sec = val; break;
+    case CF_MINUTE: calendar->tm_min = val; break;
+    case CF_HOUR_OF_DAY: calendar->tm_hour = val; break;
+    case CF_DAY_OF_WEEK: calendar->tm_wday = val; break;
+    case CF_DAY_OF_MONTH: calendar->tm_mday = val; break;
+    case CF_MONTH: calendar->tm_mon = val; break;
+    case CF_YEAR: calendar->tm_year = val; break;
+    }
+    mkgmtime(calendar);
+}
+
+
+/**
+ * Search the bits provided for the next set bit after the value provided,
+ * and reset the calendar.
+ * @param bits a {@link charean[]} representing the allowed values of the field
+ * @param value the current value of the field
+ * @param calendar the calendar to increment as we move through the bits
+ * @param field the field to increment in the calendar (@see
+ * {@link Calendar} for the static constants defining valid fields)
+ * @param lowerOrders the Calendar field ids that should be reset (i.e. the
+ * ones of lower significance than the field of interest)
+ * @return the value of the calendar field that is next in the sequence
+ */
+static unsigned int find_next(char* bits, int max, unsigned int value, tm* calendar, int field,
+        int nextField, int* lower_orders) {
+    int next_value = next_set_bit(bits, max, value);
+    // roll over if needed
+    if (next_value == -1) {
+        add_to_field(calendar, nextField, 1);
+        reset(calendar, field);
+        next_value = next_set_bit(bits, max, 0);
+    }
+    if (-1 == next_value || static_cast<unsigned int> (next_value) != value) {
+        set_field(calendar, field, next_value);
+        reset(calendar, lower_orders);
+    }
+    return next_value;
+}
+
+static unsigned int find_next_day(tm* calendar, char* days_of_month,
+        unsigned int day_of_month, char* days_of_week, unsigned int day_of_week,
+        int* resets) {
+    unsigned int count = 0;
+    unsigned int max = 366;
+    while ((!days_of_month[day_of_month] || !days_of_week[day_of_week]) && count++ < max) {
+        add_to_field(calendar, CF_DAY_OF_MONTH, 1);
+        day_of_month = calendar->tm_mday;
+        day_of_week = calendar->tm_wday;
+        reset(calendar, resets);
+    }
+    if (count >= max) {
+        // todo
+        throw "Overflow in day for expression \"this.expression \"";
+    }
+    return day_of_month;
+}
+
+static int do_next(cron_expr* expr, tm* calendar, unsigned int dot) {
+    int* resets = (int*) malloc(CF_ARR_LEN * sizeof (int));
+    int* empty_list = (int*) malloc(CF_ARR_LEN * sizeof (int));
+    for (int i = 0; i < CF_ARR_LEN; i++) {
+        resets[i] = -1;
+        empty_list[i] = -1;
+    }
+
+    unsigned int second = calendar->tm_sec;
+    unsigned int update_second = find_next(expr->seconds, MAX_SECONDS, second, calendar, CF_SECOND, CF_MINUTE, empty_list);
+    if (second == update_second) {
+        push_to_fields_arr(resets, CF_SECOND);
+    }
+
+    unsigned int minute = calendar->tm_min;
+    unsigned int update_minute = find_next(expr->minutes, MAX_MINUTES, minute, calendar, CF_MINUTE, CF_HOUR_OF_DAY, resets);
+    if (minute == update_minute) {
+        push_to_fields_arr(resets, CF_MINUTE);
+    } else {
+        int res = do_next(expr, calendar, dot);
+        if (res < 0) return res;
+    }
+
+    unsigned int hour = calendar->tm_hour;
+    unsigned int update_hour = find_next(expr->hours, MAX_HOURS, hour, calendar, CF_HOUR_OF_DAY, CF_DAY_OF_WEEK, resets);
+    if (hour == update_hour) {
+        push_to_fields_arr(resets, CF_HOUR_OF_DAY);
+    } else {
+        int res = do_next(expr, calendar, dot);
+        if (res < 0) return res;
+    }
+
+    unsigned int day_of_week = calendar->tm_wday;
+    unsigned int day_of_month = calendar->tm_mday;
+    unsigned int update_day_of_month = find_next_day(calendar, expr->days_of_month, day_of_month, expr->days_of_week, day_of_week, resets);
+    if (day_of_month == update_day_of_month) {
+        push_to_fields_arr(resets, CF_DAY_OF_MONTH);
+    } else {
+        int res = do_next(expr, calendar, dot);
+        if (res < 0) return res;
+    }
+
+    unsigned int month = calendar->tm_mon;
+    unsigned int update_month = find_next(expr->months, MAX_MONTHS, month, calendar, CF_MONTH, CF_YEAR, resets);
+    if (month != update_month) {
+        if (calendar->tm_year - dot > 4) {
+            return -1;
+            //                throw std::exception();
+            //                throw "Invalid cron expression \" this.expression\" led to runaway search for next trigger";
+        }
+        int res = do_next(expr, calendar, dot);
+        if (res < 0) return res;
+    }
+    return 0;
+}
 
 void to_upper(char* str) {
     for (int i = 0; '\0' != str[i]; i++) {
@@ -64,7 +210,6 @@ void to_upper(char* str) {
 }
 
 // You must free the result if result is non-NULL.
-
 char* str_replace(char *orig, const char *rep, const char *with) {
     char *result; // the return string
     char *ins; // the next insert point
@@ -115,9 +260,6 @@ char* to_string(int num) {
     char* str = (char*) malloc(10);
     sprintf(str, "%d", num);
     return str;
-//    std::stringstream ss{};
-//    ss << t;
-//    return ss.str();
 }
 
 // workaround for android
@@ -134,87 +276,7 @@ unsigned int parse_uint32(const char* str) {
     return (unsigned int) l;
 }
 
-} // namespace
-
-//int is_blank(char* st) {
-//    size_t len = strlen(st);
-//    for(size_t i = 0; i < len; i++) {
-//        if(!isspace(st[i])) return 0;
-//    }
-//    return 1;
-//}
-
-//char* trim(char* str) {
-//    size_t len = strlen(str);
-//    char* out = (char*) malloc(len+1);
-//    memset(out, 0, len+1);
-//    size_t j = 0;
-//    for(size_t i = 0; i < len; i++) {
-//        if(!isspace(str[i])) {
-//            out[j++] = str[i];
-//        }
-//    }
-//    return out;
-//}
-
-
 char** split_str(const char* str, char del, size_t* len_out) {
-//    size_t len = 0;
-//    char** splitted = str_split(&str.front(), del, &len);
-//    auto res = std::vector<std::string>{};
-//    res.reserve(len);
-//    for (size_t i = 0; splitted[i]; i++) {
-//        res.push_back(splitted[i]);
-//    }
-//    return res;
-  
-    
-//    int accum = 0;
-//    size_t len = 0;
-//    char* str = &pstr.front();
-//    size_t stlen = strlen(str);
-//    for(size_t i = 0; i < stlen; i++) {
-//        if (del == str[i]) {
-//            if (accum > 0) {
-//                len += 1;
-//                accum = 0;
-//            }
-//        } else if (!isspace(str[i])) {
-//            accum += 1;
-//        }
-//    }
-//    if (accum > 0) {
-//        len += 1;
-//    }
-//    char** res = (char**) malloc(len*sizeof(char*));
-//    char* buf = (char*) malloc(stlen + 1);
-//    memset(buf, 0, stlen + 1);
-//    size_t ri = 0;
-//    size_t bi = 0;
-//    for (size_t i = 0; i < stlen; i++) {
-//        if (del == str[i]) {
-//            if (bi > 0) {
-//                res[ri++] = trim(buf);
-//                memset(buf, 0, stlen + 1);
-//                bi = 0;
-//            }
-//        } else if (!isspace(str[i])) {
-//            buf[bi++] = str[i];
-//            bi += 1;
-//        }
-//    }
-//    if (bi > 0) {
-//        res[ri++] = trim(buf);
-//    }
-//    
-//    
-//    auto vec = std::vector<std::string>{};
-//    vec.reserve(len);
-//    for (size_t i = 0; i < len; i++) {
-//        vec.push_back(res[i]);
-//    }
-//    return vec;
-    
     size_t stlen = strlen(str);
     int accum = 0;
     size_t len = 0;
@@ -230,7 +292,6 @@ char** split_str(const char* str, char del, size_t* len_out) {
     }
     // tail
     if (accum > 0) {
-        // copy here
         len += 1;
     }
 
@@ -242,8 +303,6 @@ char** split_str(const char* str, char del, size_t* len_out) {
     for (size_t i = 0; i < stlen; i++) {
         if (del == str[i]) {
             if (bi > 0) {
-                // copy here
-//                res.push_back(std::string(buf));
                 res[ri++] = strdup(buf);
                 memset(buf, 0, stlen + 1);
                 bi = 0;
@@ -254,20 +313,10 @@ char** split_str(const char* str, char del, size_t* len_out) {
     }
     // tail
     if (bi > 0) {
-        // copy here
-//        res.push_back(std::string(buf));
         res[ri++] = strdup(buf);
     }
     *len_out = len;
     return res;
-//    assert(len == res.size());
-    
-//    auto vec = std::vector<std::string>{};
-//    vec.reserve(len);
-//    for (size_t i = 0; i < len; i++) {
-//        vec.push_back(res[i]);
-//    }
-//    return vec;
 }
 
 char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
@@ -384,7 +433,7 @@ char* set_days_of_month(char* field) {
 
 
 
-CronExprBitsets parse(const char* expression) {
+cron_expr* cron_parse_expr(const char* expression, char** error) {
     size_t len = 0;
     char** fields = split_str(expression, ' ', &len);
     if (len != 6) {
@@ -403,6 +452,73 @@ CronExprBitsets parse(const char* expression) {
     auto days_of_month = set_days_of_month(fields[3]);
     auto months = set_months(fields[4]);
 
-    return CronExprBitsets(seconds, minutes, hours, 
-            days_of_week, days_of_month, months);
+    cron_expr* res = (cron_expr*) malloc(sizeof (cron_expr));
+    res->seconds = seconds;
+    res->minutes = minutes;
+    res->hours = hours;
+    res->days_of_week = days_of_week;
+    res->days_of_month = days_of_month;
+    res->months = months;
+    if (error) {
+        *error = NULL;
+    }
+    return res;
 }
+
+// todo
+time_t cron_next_local(cron_expr* expr, time_t date) {
+    return cron_next(expr, date);
+}
+
+time_t cron_next(cron_expr* expr, time_t date) {
+    /*
+    The plan:
+
+    1 Round up to the next whole second
+
+    2 If seconds match move on, otherwise find the next match:
+    2.1 If next match is in the next minute then roll forwards
+
+    3 If minute matches move on, otherwise find the next match
+    3.1 If next match is in the next hour then roll forwards
+    3.2 Reset the seconds and go to 2
+
+    4 If hour matches move on, otherwise find the next match
+    4.1 If next match is in the next day then roll forwards,
+    4.2 Reset the minutes and seconds and go to 2
+
+    ...
+     */
+    tm* calendar = gmtime(&date);
+    time_t original = mkgmtime(calendar);
+
+    int res = do_next(expr, calendar, calendar->tm_year);
+    if (res < 0) return INVALID_INSTANT;
+
+    if (mkgmtime(calendar) == original) {
+        // We arrived at the original timestamp - round up to the next whole second and try again...
+        add_to_field(calendar, CF_SECOND, 1);
+        int res = do_next(expr, calendar, calendar->tm_year);
+        if (res < 0) return INVALID_INSTANT;
+    }
+
+    return mkgmtime(calendar);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

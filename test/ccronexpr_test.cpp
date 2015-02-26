@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "staticlib/cron/CronExprParser.hpp"
+#include "staticlib/cron/ccronexpr.hpp"
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
@@ -21,6 +21,39 @@
 
 namespace { // anonymous
 
+int crons_equal(cron_expr* cr1, cron_expr* cr2) {
+    for (int i = 0; i < MAX_SECONDS; i++) {
+        if (cr1->seconds[i] != cr2->seconds[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_MINUTES; i++) {
+        if (cr1->minutes[i] != cr2->minutes[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_HOURS; i++) {
+        if (cr1->hours[i] != cr2->hours[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_DAYS_OF_WEEK; i++) {
+        if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_DAYS_OF_MONTH; i++) {
+        if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
+            return 0;
+        }
+    }
+    for (int i = 0; i < MAX_MONTHS; i++) {
+        if (cr1->months[i] != cr2->months[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
 
 //void split_str_test() {
 //    assert(split_str("* * *", ' ') == (std::vector<std::string>{"*", "*", "*"}));
@@ -39,7 +72,8 @@ namespace { // anonymous
 //}
 
 void check_next(std::string pattern, std::string initial, std::string expected) {
-    auto parsed = parse(pattern.c_str());
+    char* err = NULL;
+    auto parsed = cron_parse_expr(pattern.c_str(), &err);
     std::tm calinit_val = {};
     auto calinit = &calinit_val;
     auto res = strptime(initial.c_str(), DATE_FORMAT, calinit);
@@ -49,7 +83,7 @@ void check_next(std::string pattern, std::string initial, std::string expected) 
 //    puts(buffer); 
     time_t dateinit = timegm(calinit);
     assert(-1 != dateinit);
-    auto datenext = parsed.next(dateinit);
+    auto datenext = cron_next(parsed, dateinit);
     auto calnext = std::gmtime(&datenext);
     assert(calnext);
     strftime(buffer, 20, DATE_FORMAT, calnext);
@@ -62,30 +96,25 @@ void check_next(std::string pattern, std::string initial, std::string expected) 
 }
 
 void check_same(std::string expr1, std::string expr2) {
-    auto parsed1 = parse(expr1.c_str());
-    auto parsed2 = parse(expr2.c_str());
-    assert(crons_equal(&parsed1, &parsed2));
+    cron_expr* parsed1 = cron_parse_expr(expr1.c_str(), NULL);
+    cron_expr* parsed2 = cron_parse_expr(expr2.c_str(), NULL);
+    assert(crons_equal(parsed1, parsed2));
 }
 
 void check_calc_invalid() {
-    auto parsed = parse("0 0 0 31 6 *");
+    auto parsed = cron_parse_expr("0 0 0 31 6 *", NULL);
     std::tm calinit_val = {};
     auto calinit = &calinit_val;
     strptime("2012-07-01_09:53:50", DATE_FORMAT, calinit);
     time_t dateinit = timegm(calinit);
-    bool thrown = false;
-    try {
-        parsed.next(dateinit);
-    } catch (const std::exception& e) {
-        thrown = true;
-    }
-    assert(thrown);
+    time_t res = cron_next(parsed, dateinit);
+    assert(INVALID_INSTANT == res);
 }
 
 void check_expr_invalid(std::string expr) {
     bool thrown = false;
     try {
-        parse(expr.c_str());
+        cron_parse_expr(expr.c_str(), NULL);
 //        std::cout << parsed.to_string() << std::endl; 
     } catch (const std::exception& e) {
         thrown = true;
