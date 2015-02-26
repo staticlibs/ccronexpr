@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #define __USE_XOPEN
+#define __USE_MISC
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,32 +18,33 @@
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
 int crons_equal(cron_expr* cr1, cron_expr* cr2) {
-    for (int i = 0; i < MAX_SECONDS; i++) {
+    int i;
+    for (i = 0; i < MAX_SECONDS; i++) {
         if (cr1->seconds[i] != cr2->seconds[i]) {
             return 0;
         }
     }
-    for (int i = 0; i < MAX_MINUTES; i++) {
+    for (i = 0; i < MAX_MINUTES; i++) {
         if (cr1->minutes[i] != cr2->minutes[i]) {
             return 0;
         }
     }
-    for (int i = 0; i < MAX_HOURS; i++) {
+    for (i = 0; i < MAX_HOURS; i++) {
         if (cr1->hours[i] != cr2->hours[i]) {
             return 0;
         }
     }
-    for (int i = 0; i < MAX_DAYS_OF_WEEK; i++) {
+    for (i = 0; i < MAX_DAYS_OF_WEEK; i++) {
         if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
             return 0;
         }
     }
-    for (int i = 0; i < MAX_DAYS_OF_MONTH; i++) {
+    for (i = 0; i < MAX_DAYS_OF_MONTH; i++) {
         if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
             return 0;
         }
     }
-    for (int i = 0; i < MAX_MONTHS; i++) {
+    for (i = 0; i < MAX_MONTHS; i++) {
         if (cr1->months[i] != cr2->months[i]) {
             return 0;
         }

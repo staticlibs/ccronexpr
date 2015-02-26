@@ -11,7 +11,7 @@ project ( staticlib_cron C )
 include ( ${CMAKE_CURRENT_LIST_DIR}/cmake/CMakeLists_common.cmake )
 
 # build steps
-set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wextra" CACHE INTERNAL "" )
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c89 -Wall -Werror -Wextra" CACHE INTERNAL "" )
 set ( ${PROJECT_NAME}_INCLUDES ${CMAKE_CURRENT_LIST_DIR} )
 add_library ( ${PROJECT_NAME} STATIC ${CMAKE_CURRENT_LIST_DIR}/ccronexpr.c )
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE ${${PROJECT_NAME}_INCLUDES} )

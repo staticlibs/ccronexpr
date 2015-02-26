@@ -8,6 +8,7 @@
 #ifndef CRONEXPRPARSER_HPP
 #define	CRONEXPRPARSER_HPP
 
+#define __USE_MISC
 #include <time.h>
 #include <stdlib.h>
 
