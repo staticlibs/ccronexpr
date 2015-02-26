@@ -72,7 +72,7 @@ int crons_equal(cron_expr* cr1, cron_expr* cr2) {
 //}
 
 void check_next(std::string pattern, std::string initial, std::string expected) {
-    char* err = NULL;
+    const char* err = NULL;
     auto parsed = cron_parse_expr(pattern.c_str(), &err);
     std::tm calinit_val = {};
     auto calinit = &calinit_val;
@@ -112,14 +112,9 @@ void check_calc_invalid() {
 }
 
 void check_expr_invalid(std::string expr) {
-    bool thrown = false;
-    try {
-        cron_parse_expr(expr.c_str(), NULL);
-//        std::cout << parsed.to_string() << std::endl; 
-    } catch (const std::exception& e) {
-        thrown = true;
-    }
-    assert(thrown);
+    const char* err = NULL;
+    cron_parse_expr(expr.c_str(), &err);
+    assert(err);
 }
 
 void test_expr() {

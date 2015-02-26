@@ -13,14 +13,19 @@
 #include <cassert>
 #include <cstdio>
 
-#include <exception>
-
 #include "staticlib/cron/ccronexpr.hpp"
 
 const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 #define DAYS_ARR_LEN 7
 const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 #define MONTHS_ARR_LEN 13
+
+char* strdup(const char *s) {
+    char *d = (char*) malloc(strlen(s) + 1); // Space for length plus nul
+    if (d == NULL) return NULL; // No memory
+    strcpy(d, s); // Copy the characters
+    return d; // Return the new string
+}
 
 // http://stackoverflow.com/a/22557778    
 static time_t mkgmtime(struct tm* tm) {
@@ -263,17 +268,17 @@ char* to_string(int num) {
 }
 
 // workaround for android
-unsigned int parse_uint32(const char* str) {
+unsigned int parse_uint32(const char* str, int* errcode) {
     char* endptr;
     errno = 0;
     auto l = strtoll(str, &endptr, 0);
-    if (errno == ERANGE || *endptr != '\0') {
-        throw std::exception();//(std::string("Cannot parse unsigned int from string:[]"));
+    if (errno == ERANGE || *endptr != '\0' || l < 0 || l > UINT_MAX) {
+        *errcode = 1;
+        return 0;
+    } else {
+        *errcode = 0;
+        return (unsigned int) l;
     }
-    if (l < 0 || l > UINT_MAX) {
-        throw std::exception();//(std::string("Value overflow for unsigned int from string:[]"));
-    }
-    return (unsigned int) l;
 }
 
 char** split_str(const char* str, char del, size_t* len_out) {
@@ -335,39 +340,54 @@ int has_char(char* str, char ch) {
     return 0;
 }
 
-unsigned int* get_range(char* field, unsigned int min, unsigned int max) {
+static unsigned int* get_range(char* field, unsigned int min, unsigned int max, const char** error) {
     unsigned int* res = (unsigned int*) malloc(2*sizeof (unsigned int));
+    res[0] = 0;
+    res[1] = 0;
     if (1 == strlen(field) && '*' == field[0]) {
         res[0] = min;
         res[1] = max - 1;
     } else if (!has_char(field, '-')) {
-        auto val = parse_uint32(field);
+        int err = 0;
+        auto val = parse_uint32(field, &err);
+        if (err) {
+            *error = "Unsigned integer parse error 1";
+            return res;
+        }
         res[0] = val;
         res[1] = val;
     } else {
         size_t len = 0;
         char** parts = split_str(field, '-', &len);
         if (len > 2) {
-            throw std::exception();//CronParseException("Range has more than two fields: '" +
-//                    field + "' in expression \"" + "this.expression" + "\"");
+            *error = "Specified range has more than two fields";
+            return res;
         }
-        res[0] = parse_uint32(parts[0]);
-        res[1] = parse_uint32(parts[1]);
+        int err = 0;
+        res[0] = parse_uint32(parts[0], &err);
+        if (err) {
+            *error = "Unsigned integer parse error 2";
+            return res;
+        }
+        res[1] = parse_uint32(parts[1], &err);
+        if (err) {
+            *error = "Unsigned integer parse error 3";
+            return res;
+        }
     }
     if (res[0] >= max || res[1] >= max) {
-        throw std::exception();
-//        throw new IllegalArgumentException("Range exceeds maximum (" + max + "): '" +
-//                field + "' in expression \"" + "this.expression" + "\"");
+        *error = "Specified range exceeds maximum";
+        return res;
     }
     if (res[0] < min || res[1] < min) {
-        throw std::exception();
-//        throw new IllegalArgumentException("Range less than minimum (" + min + "): '" +
-//                field + "' in expression \"" + "this.expression" + "\"");
+        *error = "Specified range is less than maximum";
+        return res;
     }
+    *error = NULL;
     return res;
 }
 
-char* set_number_hits(char* value, unsigned int min, unsigned int max) {
+static char* set_number_hits(char* value, unsigned int min, unsigned int max, const char** error) {
     char* bits = (char*) malloc(max);
     memset(bits, 0, max);
     size_t len = 0;
@@ -376,7 +396,10 @@ char* set_number_hits(char* value, unsigned int min, unsigned int max) {
         char* field = fields[i];
         if (!has_char(field, '/')) {
             // Not an incrementer so it must be a range (possibly empty)
-            auto range = get_range(field, min, max);
+            auto range = get_range(field, min, max, error);
+            if (*error) {
+                return bits;
+            }
             for (unsigned int i = range[0]; i <= range[1]; i++) {
                 bits[i] = 1;
             }
@@ -384,29 +407,42 @@ char* set_number_hits(char* value, unsigned int min, unsigned int max) {
             size_t len2 = 0;
             char** split = split_str(field, '/', &len2);
             if (len2 > 2) {
-                throw std::exception();//("Incrementer has more than two fields: '");
+                *error = "Incrementer has more than two fields";
+                return bits;
             }
-            auto range = get_range(split[0], min, max);
+            auto range = get_range(split[0], min, max, error);
+            if (*error) {
+                return bits;
+            }
             if (!has_char(split[0], '-')) {
                 range[1] = max - 1;
             }
-            auto delta = parse_uint32(split[1]);
+            int err = 0;
+            auto delta = parse_uint32(split[1], &err);
+            if (err) {
+                *error = "Unsigned integer parse error 4";
+                return bits;
+            }
             for (unsigned int i = range[0]; i <= range[1]; i += delta) {
                 bits[i] = 1;
             }
         }
     }
+    *error = NULL;
     return bits;
 }
 
-char* set_months(char* value) {
+char* set_months(char* value, const char** error) {
     unsigned int max = 12;
     char* bits = (char*) malloc(MAX_MONTHS);
     memset(bits, 0, MAX_MONTHS);
     to_upper(value);
     char* replaced = replace_ordinals(value, MONTHS_ARR, MONTHS_ARR_LEN);
     // Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set
-    auto months = set_number_hits(replaced, 1, max + 1);
+    auto months = set_number_hits(replaced, 1, max + 1, error);
+    if (*error) {
+        return bits;
+    }
     // ... and then rotate it to the front of the months
     for (unsigned int i = 1; i <= max; i++) {
         if (months[i]) {
@@ -416,41 +452,50 @@ char* set_months(char* value) {
     return bits;
 }
 
-char* set_days(char* field, int max) {
+char* set_days(char* field, int max, const char** error) {
     if (1 == strlen(field) && '?' == field[0]) {
         field[0] = '*';
     }
-    return set_number_hits(field, 0, max);
+    return set_number_hits(field, 0, max, error);
 }
 
-char* set_days_of_month(char* field) {
+char* set_days_of_month(char* field, const char** error) {
     // Days of month start with 1 (in Cron and Calendar) so add one
-    auto bits = set_days(field, MAX_DAYS_OF_MONTH);
+    auto bits = set_days(field, MAX_DAYS_OF_MONTH, error);
     // ... and remove it from the front
     bits[0] = 0;
     return bits;
 }
 
-
-
-cron_expr* cron_parse_expr(const char* expression, char** error) {
+cron_expr* cron_parse_expr(const char* expression, const char** error) {
+    const char* err_local;
+    if (!error) {
+        error = &err_local;
+    }
     size_t len = 0;
     char** fields = split_str(expression, ' ', &len);
     if (len != 6) {
-        throw std::exception();//("Cron expression must consist of 6 fields (found %d in \"%s\")");
+        *error = "Invalid number of fields, expression must consist of 6 fields";
+        return NULL;
     }
-    auto seconds = set_number_hits(fields[0], 0, 60);
-    auto minutes = set_number_hits(fields[1], 0, 60);
-    auto hours = set_number_hits(fields[2], 0, 24);
+    auto seconds = set_number_hits(fields[0], 0, 60, error);
+    if (*error) return NULL;
+    auto minutes = set_number_hits(fields[1], 0, 60, error);
+    if (*error) return NULL;
+    auto hours = set_number_hits(fields[2], 0, 24, error);
+    if (*error) return NULL;
     to_upper(fields[5]);
-    auto days_of_week = set_days(replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN), 8);
+    auto days_of_week = set_days(replace_ordinals(fields[5], DAYS_ARR, DAYS_ARR_LEN), 8, error);
+    if (*error) return NULL;
     if (days_of_week[7]) {
         // Sunday can be represented as 0 or 7
         days_of_week[0] = true;
         days_of_week[7] = false;
     }
-    auto days_of_month = set_days_of_month(fields[3]);
-    auto months = set_months(fields[4]);
+    auto days_of_month = set_days_of_month(fields[3], error);
+    if (*error) return NULL;
+    auto months = set_months(fields[4], error);
+    if (*error) return NULL;
 
     cron_expr* res = (cron_expr*) malloc(sizeof (cron_expr));
     res->seconds = seconds;
@@ -459,9 +504,7 @@ cron_expr* cron_parse_expr(const char* expression, char** error) {
     res->days_of_week = days_of_week;
     res->days_of_month = days_of_month;
     res->months = months;
-    if (error) {
-        *error = NULL;
-    }
+    *error = NULL;
     return res;
 }
 

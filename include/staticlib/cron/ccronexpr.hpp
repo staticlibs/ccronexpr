@@ -40,7 +40,7 @@ typedef struct {
 } cron_expr;
 
 
-cron_expr* cron_parse_expr(const char* expression, char** error);
+cron_expr* cron_parse_expr(const char* expression, const char** error);
 
 time_t cron_next(cron_expr*, time_t date);
 
