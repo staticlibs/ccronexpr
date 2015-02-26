@@ -15,6 +15,15 @@
 
 #include "ccronexpr.h"
 
+#define MAX_SECONDS 60
+#define MAX_MINUTES 60
+#define MAX_HOURS 24
+#define MAX_DAYS_OF_WEEK 8
+#define MAX_DAYS_OF_MONTH 32
+#define MAX_MONTHS 12
+
+#define INVALID_INSTANT ((time_t) -1)
+
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
 int crons_equal(cron_expr* cr1, cron_expr* cr2) {

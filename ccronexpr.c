@@ -12,38 +12,37 @@
 #include <math.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "ccronexpr.h"
+
+#define MAX_SECONDS 60
+#define MAX_MINUTES 60
+#define MAX_HOURS 24
+#define MAX_DAYS_OF_WEEK 8
+#define MAX_DAYS_OF_MONTH 32
+#define MAX_MONTHS 12
+
+#define CF_SECOND 0
+#define CF_MINUTE 1
+#define CF_HOUR_OF_DAY 2
+#define CF_DAY_OF_WEEK 3
+#define CF_DAY_OF_MONTH 4
+#define CF_MONTH 5
+#define CF_YEAR 6
+
+#define CF_ARR_LEN 7
+
+#define INVALID_INSTANT ((time_t) -1)
 
 const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 #define DAYS_ARR_LEN 7
 const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 #define MONTHS_ARR_LEN 13
 
-void cron_expr_free(cron_expr* expr) {
-    if(!expr) return;
-    if (expr->seconds) {
-        free(expr->seconds);
-    }
-    if (expr->minutes) {
-        free(expr->minutes);
-    }
-    if (expr->hours) {
-        free(expr->hours);
-    }
-    if (expr->days_of_week) {
-        free(expr->days_of_week);
-    }
-    if (expr->days_of_month) {
-        free(expr->days_of_month);
-    }
-    if (expr->months) {
-        free(expr->months);
-    }
-    free(expr);
-}
+time_t timegm(struct tm *__tp);
 
-void free_splitted(char** splitted, size_t len) {
+static void free_splitted(char** splitted, size_t len) {
     size_t i;
     if(!splitted) return;
     for(i = 0; i < len; i++) {
@@ -54,13 +53,15 @@ void free_splitted(char** splitted, size_t len) {
     free(splitted);
 }
 
-char* strdup(const char *s) {
-    char *d = (char*) malloc(strlen(s) + 1); /* Space for length plus nul */
-    if (d == NULL) return NULL; /* No memory */
-    strcpy(d, s); /* Copy the characters */
-    return d; /* Return the new string */
+static char* strdupl(const char* str, size_t len) {
+    if (!str) return NULL;
+    char *res = (char*) malloc(len + 1);
+    memset(res, 0, len + 1);
+    memcpy(res, str, len);
+    return res;
 }
 
+/* todo */
 /* http://stackoverflow.com/a/22557778 */
 static time_t mkgmtime(struct tm* tm) {
 #if defined(_WIN32)
@@ -70,16 +71,24 @@ static time_t mkgmtime(struct tm* tm) {
 #endif
 }
 
-static int next_set_bit(char* bits, int max, unsigned int from_index) {
-    int i;
+static unsigned int next_set_bit(char* bits, unsigned int max, unsigned int from_index, int* notfound) {    
+    unsigned int i;
+    if (!bits) {
+        *notfound = 1;
+        return 0;
+    }
     for (i = from_index; i < max; i++) {
         if (bits[i]) return i;
     }
-    return -1;
+    *notfound = 1;
+    return 0;
 }
 
 static void push_to_fields_arr(int* arr, int fi) {
     int i;
+    if (!arr || -1 == fi) {
+        return;
+    }
     for (i = 0; i < CF_ARR_LEN; i++) {
         if (arr[i] == fi) return;
     }
@@ -91,7 +100,10 @@ static void push_to_fields_arr(int* arr, int fi) {
     }
 }
 
-static void add_to_field(struct tm* calendar, int field, int val) {
+static int add_to_field(struct tm* calendar, int field, int val) {
+    if (!calendar || -1 == field) {
+        return 1;
+    }
     switch (field) {
     case CF_SECOND: calendar->tm_sec = calendar->tm_sec + val; break;
     case CF_MINUTE: calendar->tm_min = calendar->tm_min + val; break;
@@ -100,14 +112,22 @@ static void add_to_field(struct tm* calendar, int field, int val) {
     case CF_DAY_OF_MONTH: calendar->tm_mday = calendar->tm_mday + val; break;
     case CF_MONTH: calendar->tm_mon = calendar->tm_mon + val; break;
     case CF_YEAR: calendar->tm_year = calendar->tm_year + val; break;
+    default: return 1; /* unknown field */
     }
-    mkgmtime(calendar);
+    time_t res = mkgmtime(calendar);
+    if (INVALID_INSTANT == res) {
+        return 1;
+    }
+    return 0;
 }
 
 /**
  * Reset the calendar setting all the fields provided to zero.
  */
-static void reset(struct tm* calendar, int field) {
+static int reset(struct tm* calendar, int field) {
+    if (!calendar || -1 == field) {
+        return 1;
+    }
     switch (field) {
     case CF_SECOND: calendar->tm_sec = 0; break;
     case CF_MINUTE: calendar->tm_min = 0; break;
@@ -116,20 +136,34 @@ static void reset(struct tm* calendar, int field) {
     case CF_DAY_OF_MONTH: calendar->tm_mday = 1; break;
     case CF_MONTH: calendar->tm_mon = 0; break;
     case CF_YEAR: calendar->tm_year = 0; break;
+    default: return 1; /* unknown field */
     }
-    mkgmtime(calendar);
+    time_t res = mkgmtime(calendar);
+    if (INVALID_INSTANT == res) {
+        return 1;
+    }
+    return 0;
 }
 
-static void reset_all(struct tm* calendar, int* fields) {
+static int reset_all(struct tm* calendar, int* fields) {
     int i;
+    int res = 0;
+    if (!calendar || !fields) {
+        return 1;
+    }
     for (i = 0; i < CF_ARR_LEN; i++) {
         if (-1 != fields[i]) {
-            reset(calendar, fields[i]);
+            res = reset(calendar, fields[i]);
+            if(0 != res) return res;
         }
     }
+    return 0;
 }
 
-static void set_field(struct tm* calendar, int field, int val) {
+static int set_field(struct tm* calendar, int field, int val) {
+    if (!calendar || -1 == field) {
+        return 1;
+    }
     switch (field) {
     case CF_SECOND: calendar->tm_sec = val; break;
     case CF_MINUTE: calendar->tm_min = val; break;
@@ -138,8 +172,13 @@ static void set_field(struct tm* calendar, int field, int val) {
     case CF_DAY_OF_MONTH: calendar->tm_mday = val; break;
     case CF_MONTH: calendar->tm_mon = val; break;
     case CF_YEAR: calendar->tm_year = val; break;
+    default: return 1; /* unknown field */
     }
-    mkgmtime(calendar);
+    time_t res = mkgmtime(calendar);
+    if (INVALID_INSTANT == res) {
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -155,38 +194,57 @@ static void set_field(struct tm* calendar, int field, int val) {
  * ones of lower significance than the field of interest)
  * @return the value of the calendar field that is next in the sequence
  */
-static unsigned int find_next(char* bits, int max, unsigned int value, struct tm* calendar, int field,
-        int nextField, int* lower_orders) {
-    int next_value = next_set_bit(bits, max, value);
+static unsigned int find_next(char* bits, unsigned int max, unsigned int value, struct tm* calendar, 
+        unsigned int field, unsigned int nextField, int* lower_orders, int* res_out) {
+    int notfound = 0;
+    int err = 0;
+    unsigned int next_value = next_set_bit(bits, max, value, &notfound);
     /* roll over if needed */
-    if (next_value == -1) {
-        add_to_field(calendar, nextField, 1);
-        reset(calendar, field);
-        next_value = next_set_bit(bits, max, 0);
+    if (notfound) {
+        err = add_to_field(calendar, nextField, 1);
+        if (err) {
+            *res_out = 1;
+            return 0;
+        }
+        err = reset(calendar, field);
+        if (err) {
+            *res_out = 1;
+            return 0;
+        }
+        notfound = 0;
+        next_value = next_set_bit(bits, max, 0, &notfound);
     }
-    if (-1 == next_value || (unsigned int) (next_value) != value) {
-        set_field(calendar, field, next_value);
-        reset_all(calendar, lower_orders);
+    if (notfound || next_value != value) {
+        err = set_field(calendar, field, next_value);
+        if (err) {
+            *res_out = 1;
+            return 0;
+        }
+        err = reset_all(calendar, lower_orders);
+        if (err) {
+            *res_out = 1;
+            return 0;
+        }
     }
     return next_value;
 }
 
 static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
         unsigned int day_of_month, char* days_of_week, unsigned int day_of_week,
-        int* resets) {
+        int* resets, int* res_out) {
+    int err;
     unsigned int count = 0;
     unsigned int max = 366;
     while ((!days_of_month[day_of_month] || !days_of_week[day_of_week]) && count++ < max) {
-        add_to_field(calendar, CF_DAY_OF_MONTH, 1);
+        err = add_to_field(calendar, CF_DAY_OF_MONTH, 1);
+        if (err) {
+            *res_out = 1;
+            return 0;
+        }
         day_of_month = calendar->tm_mday;
         day_of_week = calendar->tm_wday;
         reset_all(calendar, resets);
     }
-    /* todo: check if needed
-    if (count >= max) {
-        throw "Overflow in day for expression \"this.expression \"";
-    }
-     */
     return day_of_month;
 }
 
@@ -201,48 +259,53 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     }
 
     unsigned int second = calendar->tm_sec;
-    unsigned int update_second = find_next(expr->seconds, MAX_SECONDS, second, calendar, CF_SECOND, CF_MINUTE, empty_list);
+    unsigned int update_second = find_next(expr->seconds, MAX_SECONDS, second, calendar, CF_SECOND, CF_MINUTE, empty_list, &res);
+    if (0 != res) goto return_result;
     if (second == update_second) {
         push_to_fields_arr(resets, CF_SECOND);
     }
 
     unsigned int minute = calendar->tm_min;
-    unsigned int update_minute = find_next(expr->minutes, MAX_MINUTES, minute, calendar, CF_MINUTE, CF_HOUR_OF_DAY, resets);
+    unsigned int update_minute = find_next(expr->minutes, MAX_MINUTES, minute, calendar, CF_MINUTE, CF_HOUR_OF_DAY, resets, &res);
+    if (0 != res) goto return_result;
     if (minute == update_minute) {
         push_to_fields_arr(resets, CF_MINUTE);
     } else {
         res = do_next(expr, calendar, dot);
-        if (res < 0) goto return_result;
+        if (0 != res) goto return_result;
     }
 
     unsigned int hour = calendar->tm_hour;
-    unsigned int update_hour = find_next(expr->hours, MAX_HOURS, hour, calendar, CF_HOUR_OF_DAY, CF_DAY_OF_WEEK, resets);
+    unsigned int update_hour = find_next(expr->hours, MAX_HOURS, hour, calendar, CF_HOUR_OF_DAY, CF_DAY_OF_WEEK, resets, &res);
+    if (0 != res) goto return_result;
     if (hour == update_hour) {
         push_to_fields_arr(resets, CF_HOUR_OF_DAY);
     } else {
         res = do_next(expr, calendar, dot);
-        if (res < 0) goto return_result;
+        if (0 != res) goto return_result;
     }
 
     unsigned int day_of_week = calendar->tm_wday;
     unsigned int day_of_month = calendar->tm_mday;
-    unsigned int update_day_of_month = find_next_day(calendar, expr->days_of_month, day_of_month, expr->days_of_week, day_of_week, resets);
+    unsigned int update_day_of_month = find_next_day(calendar, expr->days_of_month, day_of_month, expr->days_of_week, day_of_week, resets, &res);
+    if (0 != res) goto return_result;
     if (day_of_month == update_day_of_month) {
         push_to_fields_arr(resets, CF_DAY_OF_MONTH);
     } else {
         res = do_next(expr, calendar, dot);
-        if (res < 0) goto return_result;
+        if (0 != res) goto return_result;
     }
 
     unsigned int month = calendar->tm_mon;
-    unsigned int update_month = find_next(expr->months, MAX_MONTHS, month, calendar, CF_MONTH, CF_YEAR, resets);
+    unsigned int update_month = find_next(expr->months, MAX_MONTHS, month, calendar, CF_MONTH, CF_YEAR, resets, &res);
+    if (0 != res) goto return_result;
     if (month != update_month) {
         if (calendar->tm_year - dot > 4) {
             res = -1;
             goto return_result;
         }
         res = do_next(expr, calendar, dot);
-        if (res < 0) goto return_result;
+        if (0 != res) goto return_result;
     }
     goto return_result;
     
@@ -251,6 +314,8 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
         free(empty_list);
         return res;
 }
+
+/* todo: check below */
 
 void to_upper(char* str) {
     int i;
@@ -359,7 +424,7 @@ char** split_str(const char* str, char del, size_t* len_out) {
     for (i = 0; i < stlen; i++) {
         if (del == str[i]) {
             if (bi > 0) {
-                res[ri++] = strdup(buf);
+                res[ri++] = strdupl(buf, bi);
                 memset(buf, 0, stlen + 1);
                 bi = 0;
             }
@@ -369,7 +434,7 @@ char** split_str(const char* str, char del, size_t* len_out) {
     }
     /* tail */
     if (bi > 0) {
-        res[ri++] = strdup(buf);
+        res[ri++] = strdupl(buf, bi);
     }
     free(buf);
     *len_out = len;
@@ -649,32 +714,38 @@ time_t cron_next(cron_expr* expr, time_t date) {
     time_t original = mkgmtime(calendar);
 
     int res = do_next(expr, calendar, calendar->tm_year);
-    if (res < 0) return INVALID_INSTANT;
+    if (0 != res) return INVALID_INSTANT;
 
     if (mkgmtime(calendar) == original) {
         /* We arrived at the original timestamp - round up to the next whole second and try again... */
-        add_to_field(calendar, CF_SECOND, 1);
+        res = add_to_field(calendar, CF_SECOND, 1);
+        if (0 != res) return INVALID_INSTANT;
         int res = do_next(expr, calendar, calendar->tm_year);
-        if (res < 0) return INVALID_INSTANT;
+        if (0 != res) return INVALID_INSTANT;
     }
 
     return mkgmtime(calendar);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void cron_expr_free(cron_expr* expr) {
+    if (!expr) return;
+    if (expr->seconds) {
+        free(expr->seconds);
+    }
+    if (expr->minutes) {
+        free(expr->minutes);
+    }
+    if (expr->hours) {
+        free(expr->hours);
+    }
+    if (expr->days_of_week) {
+        free(expr->days_of_week);
+    }
+    if (expr->days_of_month) {
+        free(expr->days_of_month);
+    }
+    if (expr->months) {
+        free(expr->months);
+    }
+    free(expr);
+}
