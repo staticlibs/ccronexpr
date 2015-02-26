@@ -86,7 +86,7 @@ void check_same(const char* expr1, const char* expr2) {
 
 void check_calc_invalid() {
     cron_expr* parsed = cron_parse_expr("0 0 0 31 6 *", NULL);
-    struct tm calinit_val = {};
+    struct tm calinit_val;
     struct tm* calinit = &calinit_val;
     strptime("2012-07-01_09:53:50", DATE_FORMAT, calinit);
     time_t dateinit = timegm(calinit);

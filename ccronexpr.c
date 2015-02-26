@@ -44,8 +44,9 @@ void cron_expr_free(cron_expr* expr) {
 }
 
 void free_splitted(char** splitted, size_t len) {
+    size_t i;
     if(!splitted) return;
-    for(size_t i = 0; i < len; i++) {
+    for(i = 0; i < len; i++) {
         if (splitted[i]) {
             free(splitted[i]);
         }
@@ -70,7 +71,8 @@ static time_t mkgmtime(struct tm* tm) {
 }
 
 static int next_set_bit(char* bits, int max, unsigned int from_index) {
-    for (int i = from_index; i < max; i++) {
+    int i;
+    for (i = from_index; i < max; i++) {
         if (bits[i]) return i;
     }
     return -1;
@@ -119,7 +121,8 @@ static void reset(struct tm* calendar, int field) {
 }
 
 static void reset_all(struct tm* calendar, int* fields) {
-    for (int i = 0; i < CF_ARR_LEN; i++) {
+    int i;
+    for (i = 0; i < CF_ARR_LEN; i++) {
         if (-1 != fields[i]) {
             reset(calendar, fields[i]);
         }
@@ -188,10 +191,11 @@ static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
 }
 
 static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
+    int i;
     int res = 0;
     int* resets = (int*) malloc(CF_ARR_LEN * sizeof (int));
     int* empty_list = (int*) malloc(CF_ARR_LEN * sizeof (int));
-    for (int i = 0; i < CF_ARR_LEN; i++) {
+    for (i = 0; i < CF_ARR_LEN; i++) {
         resets[i] = -1;
         empty_list[i] = -1;
     }
@@ -249,7 +253,8 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
 }
 
 void to_upper(char* str) {
-    for (int i = 0; '\0' != str[i]; i++) {
+    int i;
+    for (i = 0; '\0' != str[i]; i++) {
         str[i] = toupper(str[i]);
     }
 }
@@ -372,10 +377,11 @@ char** split_str(const char* str, char del, size_t* len_out) {
 }
 
 char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
+    size_t i;
     char* cur = value;
     char* res = NULL;
     int first = 1;
-    for (size_t i = 0; i < arr_len; i++) {
+    for (i = 0; i < arr_len; i++) {
         char* strnum = to_string(i);
         /* todo: check strnum and res */
         res = str_replace(cur, arr[i], strnum);
@@ -392,8 +398,9 @@ char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
 }
 
 int has_char(char* str, char ch) {
+    size_t i;
     size_t len = strlen(str);
-    for (size_t i = 0; i < len; i++) {
+    for (i = 0; i < len; i++) {
         if (str[i] == ch) return 1;
     }
     return 0;
@@ -451,11 +458,13 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
 }
 
 static char* set_number_hits(char* value, unsigned int min, unsigned int max, const char** error) {
+    size_t i;
+    unsigned int i1;
     char* bits = (char*) malloc(max);
     memset(bits, 0, max);
     size_t len = 0;
     char** fields = split_str(value, ',', &len);
-    for (size_t i = 0; i < len; i++) {
+    for (i = 0; i < len; i++) {
         if (!has_char(fields[i], '/')) {
             /* Not an incrementer so it must be a range (possibly empty) */
             unsigned int* range = get_range(fields[i], min, max, error);
@@ -465,8 +474,8 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
                 }
                 goto return_result;
             }
-            for (unsigned int i = range[0]; i <= range[1]; i++) {
-                bits[i] = 1;
+            for (i1 = range[0]; i1 <= range[1]; i1++) {
+                bits[i1] = 1;
             }
             free(range);
         } else {
@@ -494,8 +503,8 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
                 free_splitted(split, len2);
                 goto return_result;
             }
-            for (unsigned int i = range[0]; i <= range[1]; i += delta) {
-                bits[i] = 1;
+            for (i1 = range[0]; i1 <= range[1]; i1 += delta) {
+                bits[i1] = 1;
             }
             free_splitted(split, len2);
             free(range);
@@ -509,6 +518,7 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
 }
 
 char* set_months(char* value, const char** error) {
+    unsigned int i;
     unsigned int max = 12;
     char* bits = (char*) malloc(MAX_MONTHS);
     memset(bits, 0, MAX_MONTHS);
@@ -524,7 +534,7 @@ char* set_months(char* value, const char** error) {
         return bits;
     }
     /* ... and then rotate it to the front of the months */
-    for (unsigned int i = 1; i <= max; i++) {
+    for (i = 1; i <= max; i++) {
         if (months[i]) {
             bits[i - 1] = 1;
         }
