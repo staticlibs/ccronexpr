@@ -40,6 +40,19 @@ const char* DAYS_ARR[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 #define MONTHS_ARR_LEN 13
 
+#define MAX_STR_LEN_TO_SPLIT 256
+#define MAX_NUM_TO_SRING 1000000000
+/* computes number of digits in decimal number */
+#define ALOG_NUM_OF_DIGITS(num) (abs(num) < 10 ? 1 : \
+                                (abs(num) < 100 ? 2 : \
+                                (abs(num) < 1000 ? 3 : \
+                                (abs(num) < 10000 ? 4 : \
+                                (abs(num) < 100000 ? 5 : \
+                                (abs(num) < 1000000 ? 6 : \
+                                (abs(num) < 10000000 ? 7 : \
+                                (abs(num) < 100000000 ? 8 : \
+                                (abs(num) < 1000000000 ? 9 : 10)))))))))
+
 time_t timegm(struct tm *__tp);
 
 static void free_splitted(char** splitted, size_t len) {
@@ -55,7 +68,8 @@ static void free_splitted(char** splitted, size_t len) {
 
 static char* strdupl(const char* str, size_t len) {
     if (!str) return NULL;
-    char *res = (char*) malloc(len + 1);
+    char* res = (char*) malloc(len + 1);
+    if (!res) return NULL;
     memset(res, 0, len + 1);
     memcpy(res, str, len);
     return res;
@@ -185,14 +199,6 @@ static int set_field(struct tm* calendar, int field, int val) {
 /**
  * Search the bits provided for the next set bit after the value provided,
  * and reset the calendar.
- * @param bits a {@link charean[]} representing the allowed values of the field
- * @param value the current value of the field
- * @param calendar the calendar to increment as we move through the bits
- * @param field the field to increment in the calendar (@see
- * {@link Calendar} for the static constants defining valid fields)
- * @param lowerOrders the Calendar field ids that should be reset (i.e. the
- * ones of lower significance than the field of interest)
- * @return the value of the calendar field that is next in the sequence
  */
 static unsigned int find_next(char* bits, unsigned int max, unsigned int value, struct tm* calendar, 
         unsigned int field, unsigned int nextField, int* lower_orders, int* res_out) {
@@ -202,31 +208,23 @@ static unsigned int find_next(char* bits, unsigned int max, unsigned int value, 
     /* roll over if needed */
     if (notfound) {
         err = add_to_field(calendar, nextField, 1);
-        if (err) {
-            *res_out = 1;
-            return 0;
-        }
+        if (err) goto return_error;
         err = reset(calendar, field);
-        if (err) {
-            *res_out = 1;
-            return 0;
-        }
+        if (err) goto return_error;
         notfound = 0;
         next_value = next_set_bit(bits, max, 0, &notfound);
     }
     if (notfound || next_value != value) {
         err = set_field(calendar, field, next_value);
-        if (err) {
-            *res_out = 1;
-            return 0;
-        }
+        if (err) goto return_error;
         err = reset_all(calendar, lower_orders);
-        if (err) {
-            *res_out = 1;
-            return 0;
-        }
+        if (err) goto return_error;
     }
     return next_value;
+    
+    return_error:
+        *res_out = 1;
+        return 0;
 }
 
 static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
@@ -237,22 +235,25 @@ static unsigned int find_next_day(struct tm* calendar, char* days_of_month,
     unsigned int max = 366;
     while ((!days_of_month[day_of_month] || !days_of_week[day_of_week]) && count++ < max) {
         err = add_to_field(calendar, CF_DAY_OF_MONTH, 1);
-        if (err) {
-            *res_out = 1;
-            return 0;
-        }
+        if (err) goto return_error;
         day_of_month = calendar->tm_mday;
         day_of_week = calendar->tm_wday;
         reset_all(calendar, resets);
     }
     return day_of_month;
+
+    return_error:
+        *res_out = 1;
+        return 0;
 }
 
 static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     int i;
     int res = 0;
     int* resets = (int*) malloc(CF_ARR_LEN * sizeof (int));
+    if (!resets) goto return_result;
     int* empty_list = (int*) malloc(CF_ARR_LEN * sizeof (int));
+    if (!empty_list) goto return_result;
     for (i = 0; i < CF_ARR_LEN; i++) {
         resets[i] = -1;
         empty_list[i] = -1;
@@ -310,22 +311,37 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
     goto return_result;
     
     return_result:
-        free(resets);
-        free(empty_list);
+        if (!resets || !empty_list) {
+            res = -1;
+        }
+        if(resets) {
+            free(resets);
+        }
+        if (empty_list) {
+            free(empty_list);
+        }
         return res;
 }
 
-/* todo: check below */
-
-void to_upper(char* str) {
+static int to_upper(char* str) {
+    if (!str) return 1;
     int i;
     for (i = 0; '\0' != str[i]; i++) {
         str[i] = toupper(str[i]);
     }
+    return 0;
 }
 
-/* You must free the result if result is non-NULL. */
-char* str_replace(char *orig, const char *rep, const char *with) {
+static char* to_string(int num) {
+    if (abs(num) >= MAX_NUM_TO_SRING) return NULL;
+    char* str = (char*) malloc(ALOG_NUM_OF_DIGITS(num) + 1);
+    if (!str) return NULL;
+    int res = sprintf(str, "%d", num);
+    if (res < 0) return NULL;
+    return str;
+}
+
+static char* str_replace(char *orig, const char *rep, const char *with) {
     char *result; /* the return string */
     char *ins; /* the next insert point */
     char *tmp; /* varies */
@@ -333,22 +349,14 @@ char* str_replace(char *orig, const char *rep, const char *with) {
     int len_with; /* length of with */
     int len_front; /* distance between rep and end of last rep */
     int count; /* number of replacements */
-
-    /*
-        if (!orig)
-            return NULL;
-        if (!rep)
-            rep = "";
-     
-    
-    if (!with)
-        with = "";
-     */
+    if (!orig) return NULL;
+    if (!rep) rep = "";
+    if (!with) with = "";
     len_rep = strlen(rep);
     len_with = strlen(with);
 
     ins = orig;
-    for (count = 0; (tmp = strstr(ins, rep)); ++count) {
+    for (count = 0; NULL != (tmp = strstr(ins, rep)); ++count) {
         ins = tmp + len_rep;
     }
 
@@ -359,9 +367,7 @@ char* str_replace(char *orig, const char *rep, const char *with) {
         orig points to the remainder of orig after "end of rep"
     */
     tmp = result = (char*) malloc(strlen(orig) + (len_with - len_rep) * count + 1);
-
-    if (!result)
-        return NULL;
+    if (!result) return NULL;
 
     while (count--) {
         ins = strstr(orig, rep);
@@ -374,16 +380,7 @@ char* str_replace(char *orig, const char *rep, const char *with) {
     return result;
 }
 
-char* to_string(int num) {
-/*    int len = (int) ((ceil(log10(num)) + 2) * sizeof (char)); */
-    /* todo */
-    char* str = (char*) malloc(10);
-    sprintf(str, "%d", num);
-    return str;
-}
-
-/* workaround for android */
-unsigned int parse_uint32(const char* str, int* errcode) {
+static unsigned int parse_uint(const char* str, int* errcode) {
     char* endptr;
     errno = 0;
     long int l = strtol(str, &endptr, 0);
@@ -396,11 +393,23 @@ unsigned int parse_uint32(const char* str, int* errcode) {
     }
 }
 
-char** split_str(const char* str, char del, size_t* len_out) {
+static char** split_str(const char* str, char del, size_t* len_out) {
     size_t i;
-    size_t stlen = strlen(str);
-    int accum = 0;
+    size_t stlen = 0;
     size_t len = 0;
+    int accum = 0; 
+    char* buf = NULL;
+    char** res = NULL;
+    size_t bi = 0;
+    size_t ri = 0;
+    char* tmp;
+    
+    if(!str) goto return_error;
+    for (i = 0; '\0' != str[i]; i++) {
+        stlen += 1;
+        if (stlen >= MAX_STR_LEN_TO_SPLIT) goto return_error;
+    }
+           
     for (i = 0; i < stlen; i++) {
         if (del == str[i]) {
             if (accum > 0) {
@@ -415,16 +424,20 @@ char** split_str(const char* str, char del, size_t* len_out) {
     if (accum > 0) {
         len += 1;
     }
+    if (0 == len) return NULL;
 
-    char* buf = (char*) malloc(stlen + 1);
+    buf = (char*) malloc(stlen + 1);
+    if (!buf) goto return_error;
     memset(buf, 0, stlen + 1);
-    char** res = (char**) malloc(len * sizeof(char*));
-    size_t bi = 0;
-    size_t ri = 0;
+    res = (char**) malloc(len * sizeof(char*));
+    if (!res) goto return_error;
+    
     for (i = 0; i < stlen; i++) {
         if (del == str[i]) {
             if (bi > 0) {
-                res[ri++] = strdupl(buf, bi);
+                tmp = strdupl(buf, bi);
+                if (!tmp) goto return_error;
+                res[ri++] = tmp;
                 memset(buf, 0, stlen + 1);
                 bi = 0;
             }
@@ -434,26 +447,44 @@ char** split_str(const char* str, char del, size_t* len_out) {
     }
     /* tail */
     if (bi > 0) {
-        res[ri++] = strdupl(buf, bi);
+        tmp = strdupl(buf, bi);
+        if (!tmp) goto return_error;
+        res[ri++] = tmp;
     }
     free(buf);
     *len_out = len;
     return res;
+    
+    return_error:
+        if(buf) {
+            free(buf);
+        }
+        free_splitted(res, len);
+        *len_out = 0;
+        return NULL;
 }
 
-char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
+static char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
     size_t i;
     char* cur = value;
     char* res = NULL;
     int first = 1;
     for (i = 0; i < arr_len; i++) {
         char* strnum = to_string(i);
-        /* todo: check strnum and res */
+        if (!strnum) {
+            if (!first) {
+                free(cur);
+            }
+            return NULL;
+        }
         res = str_replace(cur, arr[i], strnum);
         free(strnum);
         if (!first) {
             free(cur);
-        }        
+        }
+        if (!res) {            
+            return NULL;
+        }
         cur = res;
         if (first) {
             first = 0;
@@ -462,9 +493,11 @@ char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
     return res;
 }
 
-int has_char(char* str, char ch) {
+static  int has_char(char* str, char ch) {    
     size_t i;
-    size_t len = strlen(str);
+    size_t len = 0;
+    if (!str) return 0;
+    len = strlen(str);
     for (i = 0; i < len; i++) {
         if (str[i] == ch) return 1;
     }
@@ -472,7 +505,10 @@ int has_char(char* str, char ch) {
 }
 
 static unsigned int* get_range(char* field, unsigned int min, unsigned int max, const char** error) {
+    char** parts = NULL;
+    size_t len = 0;
     unsigned int* res = (unsigned int*) malloc(2*sizeof (unsigned int));
+    if(!res) goto return_error;
     res[0] = 0;
     res[1] = 0;
     if (1 == strlen(field) && '*' == field[0]) {
@@ -480,55 +516,67 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         res[1] = max - 1;
     } else if (!has_char(field, '-')) {
         int err = 0;
-        unsigned int val = parse_uint32(field, &err);
+        unsigned int val = parse_uint(field, &err);
         if (err) {
             *error = "Unsigned integer parse error 1";
-            return res;
+            goto return_error;
         }
         res[0] = val;
         res[1] = val;
-    } else {
-        size_t len = 0;
-        char** parts = split_str(field, '-', &len);
-        if (len > 2) {
+    } else {        
+        parts = split_str(field, '-', &len);
+        if (0 == len || len > 2) {
             *error = "Specified range has more than two fields";
-            free_splitted(parts, len);
-            return res;
+            goto return_error;
         }
         int err = 0;
-        res[0] = parse_uint32(parts[0], &err);
+        res[0] = parse_uint(parts[0], &err);
         if (err) {
             *error = "Unsigned integer parse error 2";
-            free_splitted(parts, len);
-            return res;
+            goto return_error;
         }
-        res[1] = parse_uint32(parts[1], &err);
+        res[1] = parse_uint(parts[1], &err);
         if (err) {
             *error = "Unsigned integer parse error 3";
-            free_splitted(parts, len);
-            return res;
+            goto return_error;
         }
-        free_splitted(parts, len);
     }
     if (res[0] >= max || res[1] >= max) {
         *error = "Specified range exceeds maximum";
-        return res;
+        goto return_error;
     }
     if (res[0] < min || res[1] < min) {
-        *error = "Specified range is less than maximum";
-        return res;
+        *error = "Specified range is less than minimum";
+        goto return_error;
     }
+    free_splitted(parts, len);
     *error = NULL;
     return res;
+    
+    return_error:
+        free_splitted(parts, len);
+        if(res) {
+            free(res);
+        }
+        return NULL;
 }
 
 static char* set_number_hits(char* value, unsigned int min, unsigned int max, const char** error) {
     size_t i;
     unsigned int i1;
     char* bits = (char*) malloc(max);
+    if (!bits) {
+        *error = "Memory allocation error";
+        return NULL;
+    }
     memset(bits, 0, max);
     size_t len = 0;
     char** fields = split_str(value, ',', &len);
+    if (!fields) {
+        *error = "Comma split error";
+        goto return_result;
+    }
+    
     for (i = 0; i < len; i++) {
         if (!has_char(fields[i], '/')) {
             /* Not an incrementer so it must be a range (possibly empty) */
@@ -546,14 +594,16 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
         } else {
             size_t len2 = 0;
             char** split = split_str(fields[i], '/', &len2);
-            if (len2 > 2) {
+            if (0 == len2 || len2 > 2) {
                 *error = "Incrementer has more than two fields";
                 free_splitted(split, len2);
                 goto return_result;
             }
             unsigned int* range = get_range(split[0], min, max, error);
             if (*error) {
-                free(range);
+                if (range) {
+                    free(range);
+                }
                 free_splitted(split, len2);
                 goto return_result;
             }
@@ -561,7 +611,7 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
                 range[1] = max - 1;
             }
             int err = 0;
-            unsigned int delta = parse_uint32(split[1], &err);
+            unsigned int delta = parse_uint(split[1], &err);
             if (err) {
                 *error = "Unsigned integer parse error 4";
                 free(range);
@@ -582,22 +632,24 @@ static char* set_number_hits(char* value, unsigned int min, unsigned int max, co
         return bits;
 }
 
-char* set_months(char* value, const char** error) {
+static char* set_months(char* value, const char** error) {
+    int err;
     unsigned int i;
     unsigned int max = 12;
     char* bits = (char*) malloc(MAX_MONTHS);
+    if (!bits) {
+        *error = "Months memory allocation error";
+        return NULL;
+    }
     memset(bits, 0, MAX_MONTHS);
-    to_upper(value);
+    err = to_upper(value);
+    if(err) goto return_error;
     char* replaced = replace_ordinals(value, MONTHS_ARR, MONTHS_ARR_LEN);
+    if (!replaced) goto return_error;
     /* Months start with 1 in Cron and 0 in Calendar, so push the values first into a longer bit set */
     char* months = set_number_hits(replaced, 1, max + 1, error);
     free(replaced);
-    if (*error) {
-        if (months) {
-            free(months);
-        }
-        return bits;
-    }
+    if (*error) goto return_error;
     /* ... and then rotate it to the front of the months */
     for (i = 1; i <= max; i++) {
         if (months[i]) {
@@ -606,29 +658,34 @@ char* set_months(char* value, const char** error) {
     }
     free(months);
     return bits;
+    
+    return_error:
+        if (months) {
+            free(months);
+        }
+        return bits;
 }
 
-char* set_days(char* field, int max, const char** error) {
+static char* set_days(char* field, int max, const char** error) {
     if (1 == strlen(field) && '?' == field[0]) {
         field[0] = '*';
     }
     return set_number_hits(field, 0, max, error);
 }
 
-char* set_days_of_month(char* field, const char** error) {
+static char* set_days_of_month(char* field, const char** error) {
     /* Days of month start with 1 (in Cron and Calendar) so add one */
     char* bits = set_days(field, MAX_DAYS_OF_MONTH, error);
     /* ... and remove it from the front */
-    bits[0] = 0;
+    if (bits) {
+        bits[0] = 0;
+    }
     return bits;
 }
 
+
 cron_expr* cron_parse_expr(const char* expression, const char** error) {
     const char* err_local;
-    if (!error) {
-        error = &err_local;
-    }
-    *error = NULL;
     char* seconds = NULL;
     char* minutes = NULL;
     char* hours = NULL;
@@ -636,7 +693,12 @@ cron_expr* cron_parse_expr(const char* expression, const char** error) {
     char* days_of_month = NULL;
     char* months = NULL;
     size_t len = 0;
-    char** fields = split_str(expression, ' ', &len);
+    char** fields = NULL;
+    if (!error) {
+        error = &err_local;
+    }
+    *error = NULL;
+    fields = split_str(expression, ' ', &len);
     if (len != 6) {
         *error = "Invalid number of fields, expression must consist of 6 fields";
         goto return_res;
@@ -710,6 +772,7 @@ time_t cron_next(cron_expr* expr, time_t date) {
 
     ...
      */
+    /* todo: checks */
     struct tm* calendar = gmtime(&date);
     time_t original = mkgmtime(calendar);
 
