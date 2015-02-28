@@ -373,7 +373,7 @@ static int to_upper(char* str) {
     if (!str) return 1;
     int i;
     for (i = 0; '\0' != str[i]; i++) {
-        str[i] = toupper(str[i]);
+        str[i] = (char) toupper(str[i]);
     }
     return 0;
 }
@@ -391,9 +391,9 @@ static char* str_replace(char *orig, const char *rep, const char *with) {
     char *result; /* the return string */
     char *ins; /* the next insert point */
     char *tmp; /* varies */
-    int len_rep; /* length of rep */
-    int len_with; /* length of with */
-    int len_front; /* distance between rep and end of last rep */
+    size_t len_rep; /* length of rep */
+    size_t len_with; /* length of with */
+    size_t len_front; /* distance between rep and end of last rep */
     int count; /* number of replacements */
     if (!orig) return NULL;
     if (!rep) rep = "";
@@ -516,7 +516,7 @@ static char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
     char* res = NULL;
     int first = 1;
     for (i = 0; i < arr_len; i++) {
-        char* strnum = to_string(i);
+        char* strnum = to_string((int)i);
         if (!strnum) {
             if (!first) {
                 free(cur);
