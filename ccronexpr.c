@@ -54,6 +54,7 @@ static const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JU
 
 /* Defining 'cron_mktime' to use use UTC (default) or local time */
 #ifndef CRON_USE_LOCAL_TIME
+
 /* http://stackoverflow.com/a/22557778 */
     #ifdef _WIN32
 static time_t cron_mktime(struct tm* tm) {
@@ -66,10 +67,21 @@ static time_t cron_mktime(struct tm* tm) {
     return timegm(tm);
 }
     #endif /* _WIN32 */
+
+static struct tm* cron_time(time_t* date) {
+    return gmtime(date);
+}
+
 #else /* CRON_USE_LOCAL_TIME */
+
 static time_t cron_mktime(struct tm* tm) {
     return mktime(tm);
 }
+
+static struct tm* cron_time(time_t* date) {
+    return localtime(date);
+}
+
 #endif /* CRON_USE_LOCAL_TIME */
 
 static void free_splitted(char** splitted, size_t len) {
@@ -778,14 +790,17 @@ time_t cron_next(cron_expr* expr, time_t date) {
 
     ...
      */
-    /* todo: checks */
-    struct tm* calendar = gmtime(&date);
+    struct tm* calendar = cron_time(&date);
+    if (!calendar) return CRON_INVALID_INSTANT;
     time_t original = cron_mktime(calendar);
+    if (CRON_INVALID_INSTANT == original) return CRON_INVALID_INSTANT;
 
     int res = do_next(expr, calendar, calendar->tm_year);
     if (0 != res) return CRON_INVALID_INSTANT;
 
-    if (cron_mktime(calendar) == original) {
+    time_t calculated = cron_mktime(calendar);
+    if (CRON_INVALID_INSTANT == calculated) return CRON_INVALID_INSTANT;
+    if (calculated == original) {
         /* We arrived at the original timestamp - round up to the next whole second and try again... */
         res = add_to_field(calendar, CRON_CF_SECOND, 1);
         if (0 != res) return CRON_INVALID_INSTANT;
