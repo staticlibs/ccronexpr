@@ -8,7 +8,11 @@
 #ifndef CCRONEXPR_H
 #define	CCRONEXPR_H
 
+#ifndef ANDROID
 #include <time.h>
+#else /* ANDROID */
+#include <time64.h>
+#endif /* ANDROID */
 
 /**
  * Parsed cron expression
