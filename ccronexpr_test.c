@@ -25,7 +25,13 @@
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
 #ifndef ANDROID
+    #ifndef _WIN32
 time_t timegm(struct tm* __tp);
+    #else /* _WIN32 */
+static time_t timegm(struct tm* tm) {
+    return _mkgmtime(tm);
+}
+    #endif /* _WIN32 */
 #else /* ANDROID */
 static time_t timegm(struct tm * const t) {
     /* time_t is signed on Android. */
@@ -92,9 +98,6 @@ int one_dec_num(const char ch) {
 int two_dec_num(const char* first) {
     return one_dec_num(first[0])*10 + one_dec_num(first[1]);
 }
-
-/* can be hidden in time.h */
-time_t timegm(struct tm *__tp);
 
 /* strptime is not available in msvc */
 /* 2012-07-01_09:53:50 */
