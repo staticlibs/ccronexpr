@@ -39,26 +39,14 @@ cron_expr* cron_parse_expr(const char* expression, const char** error);
 /**
  * Uses the specified expression to calculate the next 'fire' date after
  * the specified date. All dates are processed as UTC (GMT) dates 
- * without timezones information.
- * 
- * For the same functionality but with local dates processing (using current
- * system timezone settings) use 'cron_next_local' function.
+ * without timezones information. To use local dates (current system timezone) 
+ * instead of GMT compile with '-DCRON_USE_LOCAL_TIME'
  * 
  * @param expr parsed cron expression to use in next date calculation
  * @param date start date to start calculation from
  * @return next 'fire' date in case of success, '((time_t) -1)' in case of error.
  */
 time_t cron_next(cron_expr* expr, time_t date);
-
-/**
- * Performs the same operations as 'cron_next' function, but use 
- * local dates processing (using current system timezone settings).
- * 
- * @param expr parsed cron expression to use in next date calculation
- * @param date start date to start calculation from
- * @return next 'fire' date in case of success, '((time_t) -1)' in case of error.
- */
-time_t cron_next_local(cron_expr* expr, time_t date);
 
 /**
  * Frees the memory allocated by the specified cron expression

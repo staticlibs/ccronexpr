@@ -16,11 +16,11 @@
 #include "ccronexpr.h"
 
 #define MAX_SECONDS 60
-#define MAX_MINUTES 60
-#define MAX_HOURS 24
-#define MAX_DAYS_OF_WEEK 8
-#define MAX_DAYS_OF_MONTH 32
-#define MAX_MONTHS 12
+#define CRON_MAX_MINUTES 60
+#define CRON_MAX_HOURS 24
+#define CRON_MAX_DAYS_OF_WEEK 8
+#define CRON_MAX_DAYS_OF_MONTH 32
+#define CRON_MAX_MONTHS 12
 
 #define INVALID_INSTANT ((time_t) -1)
 
@@ -33,27 +33,27 @@ int crons_equal(cron_expr* cr1, cron_expr* cr2) {
             return 0;
         }
     }
-    for (i = 0; i < MAX_MINUTES; i++) {
+    for (i = 0; i < CRON_MAX_MINUTES; i++) {
         if (cr1->minutes[i] != cr2->minutes[i]) {
             return 0;
         }
     }
-    for (i = 0; i < MAX_HOURS; i++) {
+    for (i = 0; i < CRON_MAX_HOURS; i++) {
         if (cr1->hours[i] != cr2->hours[i]) {
             return 0;
         }
     }
-    for (i = 0; i < MAX_DAYS_OF_WEEK; i++) {
+    for (i = 0; i < CRON_MAX_DAYS_OF_WEEK; i++) {
         if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
             return 0;
         }
     }
-    for (i = 0; i < MAX_DAYS_OF_MONTH; i++) {
+    for (i = 0; i < CRON_MAX_DAYS_OF_MONTH; i++) {
         if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
             return 0;
         }
     }
-    for (i = 0; i < MAX_MONTHS; i++) {
+    for (i = 0; i < CRON_MAX_MONTHS; i++) {
         if (cr1->months[i] != cr2->months[i]) {
             return 0;
         }
