@@ -1,115 +1,58 @@
-Tools for working with BLOBs in different databases
-===================================================
+Cron expression parsing in ANSI C
+=================================
 
-Library allows to work with BLOBs in streaming mode (particularly - write to BLOB as to `OutputStream`)
-in different databases using the same API (created initially for PostgreSQL). Supports transparent compression
-of BLOB data.
+Given a cron expression and a date, you can get the next date which satisfies the cron expression.
 
-Depends on [spring-jdbc](http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/jdbc.html).
+Supports cron expressions with `seconds` field. Based on implementation of [CronSequenceGenerator](https://github.com/spring-projects/spring-framework/blob/babbf6e8710ab937cd05ece20270f51490299270/spring-context/src/main/java/org/springframework/scheduling/support/CronSequenceGenerator.java) from Spring Framework.
 
-Library is available in [Maven central](http://repo1.maven.org/maven2/com/alexkasko/springjdbc/):
+Compiles and should work on Linux (GCC/Clang), Mac OS (Clang), Windows (MSVC), Android NDK, IOS, Raspberri Pi and possibly on other platforms with `time.h` support.
 
-    <dependency>
-        <groupId>com.alexkasko.springjdbc</groupId>
-        <artifactId>blob-tool</artifactId>
-        <version>1.0</version>
-    </dependency>
+Supports compilation in C (89) and in C++ modes.
 
-Javadocs for the latest release are available [here](http://alexkasko.github.com/blob-tool/javadocs).
+Usage example
+-------------
 
-Usage example with Spring and PostgreSQL
-----------------------------------------
+    #include "ccronexpr.h"
 
-Blob tool setup:
+    const char* err = NULL;
+    cron_expr* expr = cron_parse_expr("0 */2 1-4 * * *", &err);
+    if (err) ... /* invalid expression */
+    time_t cur = time(NULL);
+    time_t next = cron_next(expr, cur);
+    ...
+    cron_expr_free(expr);
 
-    @Bean
-    public BlobTool blobTool() {
-        return new PostgresBlobTool(dataSource(), compressor());
-    }
 
-Create BLOB and write data into it:
+Compilation and tests run examples
+----------------------------------
 
-    OutputStreamBlob blob = null;
-    try {
-        // create server-side BLOB
-        blob = blobTool.create();
-        // use OutputSteam from BLOB
-        createHugeReport(blob.outputStream());
-        // save BLOB id in application table for subsequent use
-        save(new AppObj(foo, bar, blob.getId()));
-    } finally {
-        // release DB resources
-        closeQuietly(blob);
-    }
+     gcc ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
+     g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
 
-Read data from BLOB:
+     clang ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
+     clang++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
 
-    InputStreamBlob blob = null;
-    try {
-        // open server-side BLOB by ID
-        blob = blobTool.load(id);
-        // read stored data
-        processStoredData(blob.inputStream());
-    } finally {
-        // release DB resources
-        closeQuietly(blob);
-    }
+     cl ccronexpr.c ccronexpr_test.c /W4 /D_CRT_SECURE_NO_WARNINGS & ccronexpr.exe
 
-Working with BLOBs through their IDs
--------------------------------------
+Examples of supported expressions
+---------------------------------
 
-Library was initially created for PostgreSQL and uses it's approach when `long` BLOB ID (OID in postgres) is stored in
-application table and blob data should be accessed using this ID explicitly. For other RDBMSes that doesn't allow
-direct control over BLOB ID (when BLOB itself is "stored" in application table) library uses additional tables like this:
+Expression, input date, next date:
 
-    create table blob_storage (
-        id int primary key,
-        data blob
-    );
+    "*/15 * 1-4 * * *",  "2012-07-01_09:53:50", "2012-07-02_01:00:00"
+    "0 */2 1-4 * * *",   "2012-07-01_09:00:00", "2012-07-02_01:00:00"
+    "0 0 7 ? * MON-FRI", "2009-09-26_00:42:55", "2009-09-28_07:00:00"
+    "0 30 23 30 1/3 ?",  "2011-04-30_23:30:00", "2011-07-30_23:30:00"
 
-Streaming BLOBs in JDBC
------------------------
+See more examples in tests.
 
-This library uses BLOBs exclusively in streaming mode without loading them into memory on any operation.
+Timezones
+---------
 
-Most RDBMSes support streaming read of BLOB data through JDBC API. But proper streaming write to BLOBs is less supported.
-To write into server-side BLOBs in streaming mode using `OutputStream` you may use this JDBC method
-[Blob#setBinaryStream](http://docs.oracle.com/javase/6/docs/api/java/sql/Blob.html#setBinaryStream%28long%29).
+This implementation does not support explicit timezones handling. By default all dates are
+processed as UTC (GMT) dates without timezone infomation. 
 
-Besides its usage is not intuitive (`set` method returns `OutputStream`):
-
-    Blob b = ...
-    OutputStream blobStream = b.setBinaryStream(1);
-
-it's also (among popular RDBMSes) implemented properly (with real server-side BLOB) only in PostgreSQL and in Oracle.
-
-This library contains different implementations for RDBMSes that support server side streaming
-write and for those that does not. Fallback implementation (for MSSQL, MySQL etc.) uses temporary file for writing to BLOB
-as to OutputStream and then flushes data to server. This method may not suit highload applications, but may be useful e.g.
-for using [H2 database](http://www.h2database.com/html/main.html) instead of PostgreSQL or Oracle in testing/prototyping.
-
-BLOBs compression
------------------
-
-Library supports transparent compression of BLOB data. Supported compression methods:"
-
- - `GzipCompressor`: GZIP compression using JDK GZIP implementation
- - `SnappyCompressor`: [Snappy](http://en.wikipedia.org/wiki/Snappy_%28software%29) compression
- - `XzCompressor`: [LZMA2](http://en.wikipedia.org/wiki/Xz) compression
- - `NoCompressor`: compression is disabled
-
-These libraries are required for Snappy and XZ compression:
-
-    <dependency>
-        <groupId>org.iq80.snappy</groupId>
-        <artifactId>snappy</artifactId>
-        <version>0.3</version>
-    </dependency>
-    <dependency>
-        <groupId>org.tukaani</groupId>
-        <artifactId>xz</artifactId>
-        <version>1.0</version>
-    </dependency>
+To use local dates (current system timezone) instead of GMT compile with `-DCRON_USE_LOCAL_TIME`.
 
 License information
 -------------------
@@ -119,6 +62,6 @@ This project is released under the [Apache License 2.0](http://www.apache.org/li
 Changelog
 ---------
 
-**1.0** (2013-03-15)
+**1.0** (2015-02-28)
 
  * initial public version
