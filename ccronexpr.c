@@ -747,6 +747,10 @@ cron_expr* cron_parse_expr(const char* expression, const char** error) {
         error = &err_local;
     }
     *error = NULL;
+    if (!expression) {
+        *error = "Invalid NULL expression";
+        goto return_res;
+    }
     fields = split_str(expression, ' ', &len);
     if (len != 6) {
         *error = "Invalid number of fields, expression must consist of 6 fields";
@@ -816,6 +820,7 @@ time_t cron_next(cron_expr* expr, time_t date) {
 
     ...
      */
+    if (!expr) return CRON_INVALID_INSTANT;
     struct tm* calendar = cron_time(&date);
     if (!calendar) return CRON_INVALID_INSTANT;
     time_t original = cron_mktime(calendar);
