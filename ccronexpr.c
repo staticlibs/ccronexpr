@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015, alex at staticlibs.net
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* 
  * File:   CronExprParser.cpp
  * Author: alex
@@ -52,23 +68,28 @@ static const char* MONTHS_ARR[] = {"FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JU
                                 (abs(num) < 100000000 ? 8 : \
                                 (abs(num) < 1000000000 ? 9 : 10)))))))))
 
+#ifndef _WIN32
+struct tm *gmtime_r(const time_t *timep, struct tm *result);
+struct tm *localtime_r(const time_t *timep, struct tm *result);
+#endif
+
 /* Defining 'cron_mktime' to use use UTC (default) or local time */
 #ifndef CRON_USE_LOCAL_TIME
 
 /* http://stackoverflow.com/a/22557778 */
-    #ifdef _WIN32
+#ifdef _WIN32
 static time_t cron_mktime(struct tm* tm) {
     return _mkgmtime(tm);
 }
-    #else /* _WIN32 */
-        #ifndef ANDROID
+#else /* _WIN32 */
+#ifndef ANDROID
 /* can be hidden in time.h */
 time_t timegm(struct tm* __tp);
-        #endif /* ANDROID */
+#endif /* ANDROID */
 static time_t cron_mktime(struct tm* tm) {
-        #ifndef ANDROID
+#ifndef ANDROID
     return timegm(tm);    
-        #else /* ANDROID */
+#else /* ANDROID */
     /* https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/os_compat_android.cc#L20 */
     static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
     static const time_t kTimeMin = (1L << (sizeof (time_t) * CHAR_BIT - 1));
@@ -76,12 +97,17 @@ static time_t cron_mktime(struct tm* tm) {
     if (result < kTimeMin || result > kTimeMax)
         return -1;
     return result;
-        #endif /* ANDROID */
+#endif /* ANDROID */
 }
-    #endif /* _WIN32 */
+#endif /* _WIN32 */
 
-static struct tm* cron_time(time_t* date) {
-    return gmtime(date);
+static struct tm* cron_time(time_t* date, struct tm* out) {
+#ifdef _WIN32
+    auto err = _gmtime_s(out, date);
+    return 0 == err ? out : NULL;
+#else /* _WIN32 */
+    return gmtime_r(date, out);
+#endif /* _WIN32 */
 }
 
 #else /* CRON_USE_LOCAL_TIME */
@@ -90,8 +116,13 @@ static time_t cron_mktime(struct tm* tm) {
     return mktime(tm);
 }
 
-static struct tm* cron_time(time_t* date) {
-    return localtime(date);
+static struct tm* cron_time(time_t* date, struct tm* out) {
+#ifdef _WIN32
+    auto err = _localtime_s(out, date);
+    return 0 == err ? out : NULL;
+#else /* _WIN32 */    
+    return localtime_r(date, out);
+#endif /* _WIN32 */    
 }
 
 #endif /* CRON_USE_LOCAL_TIME */
@@ -821,7 +852,9 @@ time_t cron_next(cron_expr* expr, time_t date) {
     ...
      */
     if (!expr) return CRON_INVALID_INSTANT;
-    struct tm* calendar = cron_time(&date);
+    struct tm calval;
+    memset(&calval, 0, sizeof (struct tm));
+    struct tm* calendar = cron_time(&date, &calval);
     if (!calendar) return CRON_INVALID_INSTANT;
     time_t original = cron_mktime(calendar);
     if (CRON_INVALID_INSTANT == original) return CRON_INVALID_INSTANT;
