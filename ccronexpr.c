@@ -78,7 +78,7 @@ struct tm *localtime_r(const time_t *timep, struct tm *result);
 
 /* http://stackoverflow.com/a/22557778 */
 #ifdef _WIN32
-static time_t cron_mktime(struct tm* tm) {
+time_t cron_mktime(struct tm* tm) {
     return _mkgmtime(tm);
 }
 #else /* _WIN32 */
@@ -86,7 +86,7 @@ static time_t cron_mktime(struct tm* tm) {
 /* can be hidden in time.h */
 time_t timegm(struct tm* __tp);
 #endif /* ANDROID */
-static time_t cron_mktime(struct tm* tm) {
+time_t cron_mktime(struct tm* tm) {
 #ifndef ANDROID
     return timegm(tm);    
 #else /* ANDROID */
@@ -101,7 +101,7 @@ static time_t cron_mktime(struct tm* tm) {
 }
 #endif /* _WIN32 */
 
-static struct tm* cron_time(time_t* date, struct tm* out) {
+struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
     errno_t err = gmtime_s(out, date);
     return 0 == err ? out : NULL;
@@ -112,11 +112,11 @@ static struct tm* cron_time(time_t* date, struct tm* out) {
 
 #else /* CRON_USE_LOCAL_TIME */
 
-static time_t cron_mktime(struct tm* tm) {
+time_t cron_mktime(struct tm* tm) {
     return mktime(tm);
 }
 
-static struct tm* cron_time(time_t* date, struct tm* out) {
+struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
     errno_t err = localtime_s(out, date);
     return 0 == err ? out : NULL;

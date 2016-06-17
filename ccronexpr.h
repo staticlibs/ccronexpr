@@ -24,6 +24,10 @@
 #ifndef CCRONEXPR_H
 #define	CCRONEXPR_H
 
+#if defined(__cplusplus) && !defined(CRON_COMPILE_AS_CXX)
+extern "C" {
+#endif
+
 #ifndef ANDROID
 #include <time.h>
 #else /* ANDROID */
@@ -74,6 +78,10 @@ time_t cron_next(cron_expr* expr, time_t date);
  * @param expr parsed cron expression to free
  */
 void cron_expr_free(cron_expr* expr);
+
+#if defined(__cplusplus) && !defined(CRON_COMPILE_AS_CXX)
+} // extern "C"
+#endif
 
 #endif	/* CCRONEXPR_H */
 

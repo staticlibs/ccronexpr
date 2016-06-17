@@ -26,13 +26,15 @@ Usage example
 Compilation and tests run examples
 ----------------------------------
 
-     gcc ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
-     g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
+    gcc ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
+    g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
+    g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 -DCRON_COMPILE_AS_CXX && ./a.out
 
-     clang ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
-     clang++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
+    clang ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 && ./a.out
+    clang++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 && ./a.out
+    clang++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 -DCRON_COMPILE_AS_CXX && ./a.out
 
-     cl ccronexpr.c ccronexpr_test.c /W4 /D_CRT_SECURE_NO_WARNINGS && ccronexpr.exe
+    cl ccronexpr.c ccronexpr_test.c /W4 /D_CRT_SECURE_NO_WARNINGS && ccronexpr.exe
 
 Examples of supported expressions
 ---------------------------------
