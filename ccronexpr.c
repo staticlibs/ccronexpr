@@ -103,7 +103,7 @@ static time_t cron_mktime(struct tm* tm) {
 
 static struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
-    auto err = _gmtime_s(out, date);
+    errno_t err = gmtime_s(out, date);
     return 0 == err ? out : NULL;
 #else /* _WIN32 */
     return gmtime_r(date, out);
@@ -118,7 +118,7 @@ static time_t cron_mktime(struct tm* tm) {
 
 static struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
-    auto err = _localtime_s(out, date);
+    errno_t err = localtime_s(out, date);
     return 0 == err ? out : NULL;
 #else /* _WIN32 */    
     return localtime_r(date, out);
