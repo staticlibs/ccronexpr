@@ -34,16 +34,22 @@ extern "C" {
 #include <time64.h>
 #endif /* ANDROID */
 
+#include <stdint.h> //added for use if uint*_t data types
+
+#ifndef ARRAY_LEN
+#define ARRAY_LEN(x) sizeof(x)/sizeof(x[0])
+#endif
+
 /**
  * Parsed cron expression
  */
 typedef struct {
-    char* seconds;
-    char* minutes;
-    char* hours;
-    char* days_of_week;
-    char* days_of_month;
-    char* months;
+    uint8_t seconds[8];
+    uint8_t minutes[8];
+    uint8_t hours[3];
+    uint8_t days_of_week[1];
+    uint8_t days_of_month[4];
+    uint8_t months[2];
 } cron_expr;
 
 /**
@@ -58,7 +64,7 @@ typedef struct {
  *        must be freed by client using 'cron_expr_free' function.
  *        NULL is returned on error.
  */
-cron_expr* cron_parse_expr(const char* expression, const char** error);
+void cron_parse_expr(const char* expression, cron_expr* target, const char** error);
 
 /**
  * Uses the specified expression to calculate the next 'fire' date after
@@ -71,6 +77,13 @@ cron_expr* cron_parse_expr(const char* expression, const char** error);
  * @return next 'fire' date in case of success, '((time_t) -1)' in case of error.
  */
 time_t cron_next(cron_expr* expr, time_t date);
+
+/**
+ * uint8_t* replace char* for storing hit dates, set_bit and get_bit are used as handlers
+ */
+uint8_t cron_getBit(uint8_t* rbyte, int idx);
+void cron_setBit(uint8_t* rbyte, int idx);
+void cron_delBit(uint8_t* rbyte, int idx);
 
 /**
  * Frees the memory allocated by the specified cron expression
