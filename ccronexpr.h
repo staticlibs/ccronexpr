@@ -34,11 +34,16 @@ extern "C" {
 #include <time64.h>
 #endif /* ANDROID */
 
-#include <stdint.h> //added for use if uint*_t data types
+#include <stdint.h> /*added for use if uint*_t data types*/
 
 #ifndef ARRAY_LEN
 #define ARRAY_LEN(x) sizeof(x)/sizeof(x[0])
 #endif
+
+#ifdef __MINGW32__
+/* To avoid warning when building with mingw */
+time_t _mkgmtime(struct tm* tm);
+#endif /* __MINGW32__ */
 
 /**
  * Parsed cron expression
@@ -93,7 +98,7 @@ void cron_delBit(uint8_t* rbyte, int idx);
 void cron_expr_free(cron_expr* expr);
 
 #if defined(__cplusplus) && !defined(CRON_COMPILE_AS_CXX)
-} // extern "C"
+} /* extern "C"*/
 #endif
 
 #endif	/* CCRONEXPR_H */

@@ -40,7 +40,7 @@
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
-#ifdef TEST
+#ifdef CRON_TEST_MALLOC
 static int cronAllocations = 0;
 static int cronTotalAllocations = 0;
 static int maxAlloc = 0;
@@ -80,7 +80,7 @@ static time_t timegm(struct tm * const t) {
 #endif
 
 static int crons_equal(cron_expr* cr1, cron_expr* cr2) {
-    int i;
+    unsigned int i;
     for (i = 0; i < ARRAY_LEN(cr1->seconds); i++) {
         if (cr1->seconds[i] != cr2->seconds[i]) {
             printf("seconds not equal @%d %02x != %02x", i, cr1->seconds[i], cr2->seconds[i]);
@@ -330,8 +330,9 @@ void test_bits() {
     uint8_t testbyte[8];
     memset(testbyte, 0, 8);
     int err = 0;
+    int i;
 
-    for (int i = 0; i <= 63; i++) {
+    for (i = 0; i <= 63; i++) {
         cron_setBit(testbyte, i);
         if (!cron_getBit(testbyte, i)) {
             printf("Bit set error! Bit: %d!\n", i);
@@ -345,7 +346,7 @@ void test_bits() {
         assert(!err);
     }
 
-    for (int i = 0; i < 12; i++) {
+    for (i = 0; i < 12; i++) {
         cron_setBit(testbyte, i);
     }
     if (testbyte[0] != 0xff) {
@@ -358,7 +359,8 @@ void test_bits() {
     assert(!err);
 }
 
-// For this test to work you need to set "-DTEST=1"
+/* For this test to work you need to set "-DCRON_TEST_MALLOC=1"*/
+#ifdef CRON_TEST_MALLOC
 void test_memory() {
     cron_expr cron;
     const char* err;
@@ -370,6 +372,7 @@ void test_memory() {
     }
     printf("Allocations: total: %d, max: %d", cronTotalAllocations, maxAlloc);
 }
+#endif
 
 int main() {
 
@@ -378,8 +381,9 @@ int main() {
     test_expr();
     test_parse();
     check_calc_invalid();
-    test_memory(); // For this test to work you need to set "-DTEST=1"
-
+    #ifdef CRON_TEST_MALLOC
+    test_memory(); /* For this test to work you need to set "-DCRON_TEST_MALLOC=1"*/
+    #endif
     printf("\nAll OK!");
     return 0;
 }

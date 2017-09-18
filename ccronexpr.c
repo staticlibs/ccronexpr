@@ -100,7 +100,8 @@ time_t cron_mktime(struct tm* tm) {
 }
 #endif /* _WIN32 */
 
-#ifndef TEST
+
+#ifndef CRON_TEST_MALLOC
 #define cronFree(x) free(x);
 #define cronMalloc(x) malloc(x);
 #else
@@ -109,11 +110,16 @@ void cronFree(void* p);
 #endif
 
 struct tm* cron_time(time_t* date, struct tm* out) {
-#ifdef _WIN32
+#ifdef __MINGW32__
+    (void)(out); /* To avoid unused warning */
     return gmtime(date);
+#else /* __MINGW32__ */
+#ifdef _WIN32
+    return gmtime_s(date, out);
 #else /* _WIN32 */
     return gmtime_r(date, out);
 #endif /* _WIN32 */
+#endif /* __MINGW32__ */
 }
 
 #else /* CRON_USE_LOCAL_TIME */
@@ -419,7 +425,7 @@ static int do_next(cron_expr* expr, struct tm* calendar, unsigned int dot) {
         if (0 != res) goto return_result;
     }
 
-    month = calendar->tm_mon; //day already adds one if no day in same month is found
+    month = calendar->tm_mon; /*day already adds one if no day in same month is found*/
     update_month = find_next(expr->months, CRON_MAX_MONTHS, month, calendar, CRON_CF_MONTH, CRON_CF_YEAR, resets, &res);
     if (0 != res) goto return_result;
     if (month != update_month) {
@@ -794,7 +800,7 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
 
 static void set_months(char* value, uint8_t* targ, const char** error) {
     int err;
-
+    unsigned int i;
     unsigned int max = 12;
 
     char* replaced = NULL;
@@ -808,7 +814,7 @@ static void set_months(char* value, uint8_t* targ, const char** error) {
     cronFree(replaced);
 
     /* ... and then rotate it to the front of the months */
-    for (int i = 1; i <= max; i++) {
+    for (i = 1; i <= max; i++) {
         if (cron_getBit(targ, i)) {
             cron_setBit(targ, i - 1);
             cron_delBit(targ, i);
@@ -864,7 +870,7 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
     cronFree(days_replaced);
     if (*error) goto return_res;
     if (cron_getBit(target->days_of_week, 7)) {
-        // Sunday can be represented as 0 or 7
+        /* Sunday can be represented as 0 or 7*/
         cron_setBit(target->days_of_week, 0);
         cron_delBit(target->days_of_week, 7);
     }
