@@ -5,7 +5,7 @@ Given a cron expression and a date, you can get the next date which satisfies th
 
 Supports cron expressions with `seconds` field. Based on implementation of [CronSequenceGenerator](https://github.com/spring-projects/spring-framework/blob/babbf6e8710ab937cd05ece20270f51490299270/spring-context/src/main/java/org/springframework/scheduling/support/CronSequenceGenerator.java) from Spring Framework.
 
-Compiles and should work on Linux (GCC/Clang), Mac OS (Clang), Windows (MSVC), Android NDK, iOS, Raspberry Pi and possibly on other platforms with `time.h` support.
+Compiles and should work on Linux (GCC/Clang), Mac OS (Clang), Windows (MSVC), Android NDK, iOS and possibly on other platforms with `time.h` support.
 
 Supports compilation in C (89) and in C++ modes.
 
@@ -14,13 +14,12 @@ Usage example
 
     #include "ccronexpr.h"
 
+    cron_expr expr;
     const char* err = NULL;
-    cron_expr* expr = cron_parse_expr("0 */2 1-4 * * *", &err);
+    cron_parse_expr("0 */2 1-4 * * *", &expr, &err);
     if (err) ... /* invalid expression */
     time_t cur = time(NULL);
-    time_t next = cron_next(expr, cur);
-    ...
-    cron_expr_free(expr);
+    time_t next = cron_next(&expr, cur);
 
 
 Compilation and tests run examples
@@ -63,6 +62,10 @@ This project is released under the [Apache License 2.0](http://www.apache.org/li
 
 Changelog
 ---------
+
+**2017-09-24
+
+ * merged #4
 
 **2016-06-17**
 
