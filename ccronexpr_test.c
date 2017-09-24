@@ -79,6 +79,13 @@ static time_t timegm(struct tm * const t) {
 }
 #endif
 
+/**
+ * uint8_t* replace char* for storing hit dates, set_bit and get_bit are used as handlers
+ */
+uint8_t cron_get_bit(uint8_t* rbyte, int idx);
+void cron_set_bit(uint8_t* rbyte, int idx);
+void cron_del_bit(uint8_t* rbyte, int idx);
+
 static int crons_equal(cron_expr* cr1, cron_expr* cr2) {
     unsigned int i;
     for (i = 0; i < ARRAY_LEN(cr1->seconds); i++) {
@@ -333,13 +340,13 @@ void test_bits() {
     int i;
 
     for (i = 0; i <= 63; i++) {
-        cron_setBit(testbyte, i);
-        if (!cron_getBit(testbyte, i)) {
+        cron_set_bit(testbyte, i);
+        if (!cron_get_bit(testbyte, i)) {
             printf("Bit set error! Bit: %d!\n", i);
             err = 1;
         }
-        cron_delBit(testbyte, i);
-        if (cron_getBit(testbyte, i)) {
+        cron_del_bit(testbyte, i);
+        if (cron_get_bit(testbyte, i)) {
             printf("Bit clear error! Bit: %d!\n", i);
             err = 1;
         }
@@ -347,7 +354,7 @@ void test_bits() {
     }
 
     for (i = 0; i < 12; i++) {
-        cron_setBit(testbyte, i);
+        cron_set_bit(testbyte, i);
     }
     if (testbyte[0] != 0xff) {
         err = 1;

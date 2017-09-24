@@ -115,7 +115,8 @@ struct tm* cron_time(time_t* date, struct tm* out) {
     return gmtime(date);
 #else /* __MINGW32__ */
 #ifdef _WIN32
-    return gmtime_s(date, out);
+    errno_t err = gmtime_s(out, date);
+    return 0 == err ? out : NULL;
 #else /* _WIN32 */
     return gmtime_r(date, out);
 #endif /* _WIN32 */
@@ -138,6 +139,31 @@ struct tm* cron_time(time_t* date, struct tm* out) {
 }
 
 #endif /* CRON_USE_LOCAL_TIME */
+
+void cron_set_bit(uint8_t* rbyte, int idx) {
+    uint8_t j = idx / 8;
+    uint8_t k = idx % 8;
+
+    rbyte[j] |= (1 << k);
+}
+
+void cron_del_bit(uint8_t* rbyte, int idx) {
+    uint8_t j = idx / 8;
+    uint8_t k = idx % 8;
+
+    rbyte[j] &= ~(1 << k);
+}
+
+uint8_t cron_get_bit(uint8_t* rbyte, int idx) {
+    uint8_t j = idx / 8;
+    uint8_t k = idx % 8;
+
+    if (rbyte[j] & (1 << k)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 static void free_splitted(char** splitted, size_t len) {
     size_t i;
@@ -166,7 +192,7 @@ static unsigned int next_set_bit(uint8_t* bits, unsigned int max, unsigned int f
         return 0;
     }
     for (i = from_index; i < max; i++) {
-        if (cron_getBit(bits, i)) return i;
+        if (cron_get_bit(bits, i)) return i;
     }
     *notfound = 1;
     return 0;
@@ -346,7 +372,7 @@ static unsigned int find_next_day(struct tm* calendar, uint8_t* days_of_month, u
     int err;
     unsigned int count = 0;
     unsigned int max = 366;
-    while ((!cron_getBit(days_of_month, day_of_month) || !cron_getBit(days_of_week, day_of_week)) && count++ < max) {
+    while ((!cron_get_bit(days_of_month, day_of_month) || !cron_get_bit(days_of_week, day_of_week)) && count++ < max) {
         err = add_to_field(calendar, CRON_CF_DAY_OF_MONTH, 1);
 
         if (err) goto return_error;
@@ -694,37 +720,6 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
     return NULL;
 }
 
-void cron_setBit(uint8_t* rbyte, int idx) {
-
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
-
-    rbyte[j] |= (1 << k);
-
-}
-
-void cron_delBit(uint8_t* rbyte, int idx) {
-
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
-
-    rbyte[j] &= ~(1 << k);
-
-}
-
-uint8_t cron_getBit(uint8_t* rbyte, int idx) {
-
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
-
-    if (rbyte[j] & (1 << k)) {
-        return 1;
-    } else {
-        return 0;
-    }
-
-}
-
 void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsigned int max, const char** error) {
     size_t i;
     unsigned int i1;
@@ -751,7 +746,7 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
             }
 
             for (i1 = range[0]; i1 <= range[1]; i1++) {
-                cron_setBit(target, i1);
+                cron_set_bit(target, i1);
 
             }
             cronFree(range);
@@ -784,7 +779,7 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
                 goto return_result;
             }
             for (i1 = range[0]; i1 <= range[1]; i1 += delta) {
-                cron_setBit(target, i1);
+                cron_set_bit(target, i1);
             }
             free_splitted(split, len2);
             cronFree(range);
@@ -815,9 +810,9 @@ static void set_months(char* value, uint8_t* targ, const char** error) {
 
     /* ... and then rotate it to the front of the months */
     for (i = 1; i <= max; i++) {
-        if (cron_getBit(targ, i)) {
-            cron_setBit(targ, i - 1);
-            cron_delBit(targ, i);
+        if (cron_get_bit(targ, i)) {
+            cron_set_bit(targ, i - 1);
+            cron_del_bit(targ, i);
         }
     }
 }
@@ -834,7 +829,7 @@ static void set_days_of_month(char* field, uint8_t* targ, const char** error) {
     set_days(field, targ, CRON_MAX_DAYS_OF_MONTH, error);
     /* ... and remove it from the front */
     if (targ) {
-        cron_delBit(targ, 0);
+        cron_del_bit(targ, 0);
     }
 
 }
@@ -869,10 +864,10 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
     set_days(days_replaced, target->days_of_week, 8, error);
     cronFree(days_replaced);
     if (*error) goto return_res;
-    if (cron_getBit(target->days_of_week, 7)) {
+    if (cron_get_bit(target->days_of_week, 7)) {
         /* Sunday can be represented as 0 or 7*/
-        cron_setBit(target->days_of_week, 0);
-        cron_delBit(target->days_of_week, 7);
+        cron_set_bit(target->days_of_week, 0);
+        cron_del_bit(target->days_of_week, 7);
     }
     set_days_of_month(fields[3], target->days_of_month, error);
     if (*error) goto return_res;

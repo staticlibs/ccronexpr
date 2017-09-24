@@ -62,12 +62,11 @@ typedef struct {
  * 
  * @param expression cron expression as nul-terminated string,
  *        should be no longer that 256 bytes
+ * @param pointer to cron expression structure, it's client code responsibility
+ *        to free/destroy it afterwards
  * @param error output error message, will be set to string literal
  *        error message in case of error. Will be set to NULL on success.
  *        The error message should NOT be freed by client.
- * @return parsed cron expression in case of success. Returned expression
- *        must be freed by client using 'cron_expr_free' function.
- *        NULL is returned on error.
  */
 void cron_parse_expr(const char* expression, cron_expr* target, const char** error);
 
@@ -83,19 +82,6 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
  */
 time_t cron_next(cron_expr* expr, time_t date);
 
-/**
- * uint8_t* replace char* for storing hit dates, set_bit and get_bit are used as handlers
- */
-uint8_t cron_getBit(uint8_t* rbyte, int idx);
-void cron_setBit(uint8_t* rbyte, int idx);
-void cron_delBit(uint8_t* rbyte, int idx);
-
-/**
- * Frees the memory allocated by the specified cron expression
- * 
- * @param expr parsed cron expression to free
- */
-void cron_expr_free(cron_expr* expr);
 
 #if defined(__cplusplus) && !defined(CRON_COMPILE_AS_CXX)
 } /* extern "C"*/
