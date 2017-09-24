@@ -141,22 +141,22 @@ struct tm* cron_time(time_t* date, struct tm* out) {
 #endif /* CRON_USE_LOCAL_TIME */
 
 void cron_set_bit(uint8_t* rbyte, int idx) {
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
+    uint8_t j = (uint8_t) (idx / 8);
+    uint8_t k = (uint8_t) (idx % 8);
 
     rbyte[j] |= (1 << k);
 }
 
 void cron_del_bit(uint8_t* rbyte, int idx) {
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
+    uint8_t j = (uint8_t) (idx / 8);
+    uint8_t k = (uint8_t) (idx % 8);
 
     rbyte[j] &= ~(1 << k);
 }
 
 uint8_t cron_get_bit(uint8_t* rbyte, int idx) {
-    uint8_t j = idx / 8;
-    uint8_t k = idx % 8;
+    uint8_t j = (uint8_t) (idx / 8);
+    uint8_t k = (uint8_t) (idx % 8);
 
     if (rbyte[j] & (1 << k)) {
         return 1;
