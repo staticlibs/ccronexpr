@@ -916,7 +916,7 @@ time_t cron_next(cron_expr* expr, time_t date) {
         /* We arrived at the original timestamp - round up to the next whole second and try again... */
         res = add_to_field(calendar, CRON_CF_SECOND, 1);
         if (0 != res) return CRON_INVALID_INSTANT;
-        int res = do_next(expr, calendar, calendar->tm_year);
+        res = do_next(expr, calendar, calendar->tm_year);
         if (0 != res) return CRON_INVALID_INSTANT;
     }
 
