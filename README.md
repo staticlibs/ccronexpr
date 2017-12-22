@@ -1,6 +1,8 @@
 Cron expression parsing in ANSI C
 =================================
 
+[![Build Status](https://travis-ci.org/staticlibs/ccronexpr.svg?branch=master)](https://travis-ci.org/staticlibs/ccronexpr)
+
 Given a cron expression and a date, you can get the next date which satisfies the cron expression.
 
 Supports cron expressions with `seconds` field. Based on implementation of [CronSequenceGenerator](https://github.com/spring-projects/spring-framework/blob/babbf6e8710ab937cd05ece20270f51490299270/spring-context/src/main/java/org/springframework/scheduling/support/CronSequenceGenerator.java) from Spring Framework.
@@ -63,7 +65,7 @@ This project is released under the [Apache License 2.0](http://www.apache.org/li
 Changelog
 ---------
 
-**2017-09-24
+**2017-09-24**
 
  * merged #4
 
