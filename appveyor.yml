@@ -14,7 +14,11 @@
 
 image: Visual Studio 2013
 
-build:
+configuration: Release
+
+build: off
+
+build_script:
   - cl ccronexpr.c ccronexpr_test.c /W4 /D_CRT_SECURE_NO_WARNINGS
 
 test_script:
