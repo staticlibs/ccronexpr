@@ -682,8 +682,8 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         res[1] = val;
     } else {
         parts = split_str(field, '-', &len);
-        if (0 == len || len > 2) {
-            *error = "Specified range has more than two fields";
+        if (2 != len) {
+            *error = "Specified range requires two fields";
             goto return_error;
         }
         int err = 0;
