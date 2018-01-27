@@ -782,6 +782,12 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
                 free_splitted(split, len2);
                 goto return_result;
             }
+            if (0 == delta) {
+                *error = "Incrementer may not be zero";
+                cronFree(range);
+                free_splitted(split, len2);
+                goto return_result;
+            }
             for (i1 = range[0]; i1 <= range[1]; i1 += delta) {
                 cron_set_bit(target, i1);
             }
