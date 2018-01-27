@@ -330,6 +330,12 @@ void test_parse() {
     check_expr_invalid("0 0 0 25 0 ?");
     check_expr_invalid("0 0 0 32 12 ?");
     check_expr_invalid("* * * * 11-13 *");
+    check_expr_invalid("-5 * * * * *");
+    check_expr_invalid("3-2 */5 * * * *");
+    check_expr_invalid("/5 * * * * *");
+    check_expr_invalid("*/0 * * * * *");
+    check_expr_invalid("*/-0 * * * * *");
+    check_expr_invalid("* 1 1 0 * *");
 }
 
 void test_bits() {

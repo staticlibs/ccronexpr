@@ -73,6 +73,14 @@ struct tm *gmtime_r(const time_t *timep, struct tm *result);
 struct tm *localtime_r(const time_t *timep, struct tm *result);
 #endif
 
+#ifndef CRON_TEST_MALLOC
+#define cronFree(x) free(x);
+#define cronMalloc(x) malloc(x);
+#else
+void* cronMalloc(size_t n);
+void cronFree(void* p);
+#endif
+
 /* Defining 'cron_mktime' to use use UTC (default) or local time */
 #ifndef CRON_USE_LOCAL_TIME
 
@@ -99,15 +107,6 @@ time_t cron_mktime(struct tm* tm) {
 #endif /* ANDROID */
 }
 #endif /* _WIN32 */
-
-
-#ifndef CRON_TEST_MALLOC
-#define cronFree(x) free(x);
-#define cronMalloc(x) malloc(x);
-#else
-void* cronMalloc(size_t n);
-void cronFree(void* p);
-#endif
 
 struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef __MINGW32__
@@ -585,6 +584,7 @@ static char** split_str(const char* str, char del, size_t* len_out) {
     memset(buf, 0, stlen + 1);
     res = (char**) cronMalloc(len * sizeof(char*));
     if (!res) goto return_error;
+    memset(res, 0, len * sizeof(char*));
 
     for (i = 0; i < stlen; i++) {
         if (del == str[i]) {
@@ -682,8 +682,8 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         res[1] = val;
     } else {
         parts = split_str(field, '-', &len);
-        if (0 == len || len > 2) {
-            *error = "Specified range has more than two fields";
+        if (2 != len) {
+            *error = "Specified range requires two fields";
             goto return_error;
         }
         int err = 0;
@@ -704,6 +704,10 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
     }
     if (res[0] < min || res[1] < min) {
         *error = "Specified range is less than minimum";
+        goto return_error;
+    }
+    if (res[0] > res[1]) {
+        *error = "Specified range start exceeds range end";
         goto return_error;
     }
 
@@ -754,8 +758,8 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
         } else {
             size_t len2 = 0;
             char** split = split_str(fields[i], '/', &len2);
-            if (0 == len2 || len2 > 2) {
-                *error = "Incrementer has more than two fields";
+            if (2 != len2) {
+                *error = "Incrementer must have two fields";
                 free_splitted(split, len2);
                 goto return_result;
             }
@@ -774,6 +778,12 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
             unsigned int delta = parse_uint(split[1], &err);
             if (err) {
                 *error = "Unsigned integer parse error 4";
+                cronFree(range);
+                free_splitted(split, len2);
+                goto return_result;
+            }
+            if (0 == delta) {
+                *error = "Incrementer may not be zero";
                 cronFree(range);
                 free_splitted(split, len2);
                 goto return_result;
@@ -826,12 +836,10 @@ static void set_days(char* field, uint8_t* targ, int max, const char** error) {
 
 static void set_days_of_month(char* field, uint8_t* targ, const char** error) {
     /* Days of month start with 1 (in Cron and Calendar) so add one */
-    set_days(field, targ, CRON_MAX_DAYS_OF_MONTH, error);
-    /* ... and remove it from the front */
-    if (targ) {
-        cron_del_bit(targ, 0);
+    if (1 == strlen(field) && '?' == field[0]) {
+        field[0] = '*';
     }
-
+    set_number_hits(field, targ, 1, CRON_MAX_DAYS_OF_MONTH, error);
 }
 
 void cron_parse_expr(const char* expression, cron_expr* target, const char** error) {

@@ -19,6 +19,7 @@ Usage example
 
     cron_expr expr;
     const char* err = NULL;
+    memset(&expr, 0, sizeof(expr));
     cron_parse_expr("0 */2 1-4 * * *", &expr, &err);
     if (err) ... /* invalid expression */
     time_t cur = time(NULL);
