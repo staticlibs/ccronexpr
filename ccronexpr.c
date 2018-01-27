@@ -73,6 +73,14 @@ struct tm *gmtime_r(const time_t *timep, struct tm *result);
 struct tm *localtime_r(const time_t *timep, struct tm *result);
 #endif
 
+#ifndef CRON_TEST_MALLOC
+#define cronFree(x) free(x);
+#define cronMalloc(x) malloc(x);
+#else
+void* cronMalloc(size_t n);
+void cronFree(void* p);
+#endif
+
 /* Defining 'cron_mktime' to use use UTC (default) or local time */
 #ifndef CRON_USE_LOCAL_TIME
 
@@ -99,15 +107,6 @@ time_t cron_mktime(struct tm* tm) {
 #endif /* ANDROID */
 }
 #endif /* _WIN32 */
-
-
-#ifndef CRON_TEST_MALLOC
-#define cronFree(x) free(x);
-#define cronMalloc(x) malloc(x);
-#else
-void* cronMalloc(size_t n);
-void cronFree(void* p);
-#endif
 
 struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef __MINGW32__
