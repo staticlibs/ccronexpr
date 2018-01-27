@@ -706,6 +706,10 @@ static unsigned int* get_range(char* field, unsigned int min, unsigned int max, 
         *error = "Specified range is less than minimum";
         goto return_error;
     }
+    if (res[0] > res[1]) {
+        *error = "Specified range start exceeds range end";
+        goto return_error;
+    }
 
     free_splitted(parts, len);
     *error = NULL;
