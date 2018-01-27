@@ -332,6 +332,7 @@ void test_parse() {
     check_expr_invalid("* * * * 11-13 *");
     check_expr_invalid("-5 * * * * *");
     check_expr_invalid("3-2 */5 * * * *");
+    check_expr_invalid("/5 * * * * *");
 }
 
 void test_bits() {

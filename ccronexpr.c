@@ -758,8 +758,8 @@ void set_number_hits(const char* value, uint8_t* target, unsigned int min, unsig
         } else {
             size_t len2 = 0;
             char** split = split_str(fields[i], '/', &len2);
-            if (0 == len2 || len2 > 2) {
-                *error = "Incrementer has more than two fields";
+            if (2 != len2) {
+                *error = "Incrementer must have two fields";
                 free_splitted(split, len2);
                 goto return_result;
             }
