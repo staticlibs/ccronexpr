@@ -836,12 +836,10 @@ static void set_days(char* field, uint8_t* targ, int max, const char** error) {
 
 static void set_days_of_month(char* field, uint8_t* targ, const char** error) {
     /* Days of month start with 1 (in Cron and Calendar) so add one */
-    set_days(field, targ, CRON_MAX_DAYS_OF_MONTH, error);
-    /* ... and remove it from the front */
-    if (targ) {
-        cron_del_bit(targ, 0);
+    if (1 == strlen(field) && '?' == field[0]) {
+        field[0] = '*';
     }
-
+    set_number_hits(field, targ, 1, CRON_MAX_DAYS_OF_MONTH, error);
 }
 
 void cron_parse_expr(const char* expression, cron_expr* target, const char** error) {
