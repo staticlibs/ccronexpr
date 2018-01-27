@@ -584,6 +584,7 @@ static char** split_str(const char* str, char del, size_t* len_out) {
     memset(buf, 0, stlen + 1);
     res = (char**) cronMalloc(len * sizeof(char*));
     if (!res) goto return_error;
+    memset(res, 0, len * sizeof(char*));
 
     for (i = 0; i < stlen; i++) {
         if (del == str[i]) {
