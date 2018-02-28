@@ -70,8 +70,10 @@ static const char* MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MAY", "J
 
 #ifndef _WIN32
 struct tm *gmtime_r(const time_t *timep, struct tm *result);
+#ifdef CRON_USE_LOCAL_TIME
 struct tm *localtime_r(const time_t *timep, struct tm *result);
-#endif
+#endif /* CRON_USE_LOCAL_TIME */
+#endif /* _WIN32 */
 
 #ifndef CRON_TEST_MALLOC
 #define cronFree(x) free(x);
