@@ -129,7 +129,7 @@ static unsigned int find_prev(uint8_t* bits, unsigned int max, unsigned int valu
         err = reset_max(calendar, field);
         if (err) goto return_error;
         notfound = 0;
-        next_value = prev_set_bit(bits, max, value, &notfound);
+        next_value = prev_set_bit(bits, max - 1, value, &notfound);
     }
     if (notfound || next_value != value) {
         err = set_field(calendar, field, next_value);
