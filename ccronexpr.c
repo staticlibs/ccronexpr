@@ -50,9 +50,9 @@
 
 #define CRON_INVALID_INSTANT ((time_t) -1)
 
-static const char* DAYS_ARR[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+static const char* const DAYS_ARR[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 #define CRON_DAYS_ARR_LEN 7
-static const char* MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+static const char* const MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
 #define CRON_MONTHS_ARR_LEN 13
 
 #define CRON_MAX_STR_LEN_TO_SPLIT 256
@@ -620,7 +620,7 @@ static char** split_str(const char* str, char del, size_t* len_out) {
     return NULL;
 }
 
-static char* replace_ordinals(char* value, const char** arr, size_t arr_len) {
+static char* replace_ordinals(char* value, const char* const * arr, size_t arr_len) {
     size_t i;
     char* cur = value;
     char* res = NULL;
