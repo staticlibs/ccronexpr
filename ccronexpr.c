@@ -282,7 +282,7 @@ time_t cron_next(cron_expr* expr, time_t date) {
 }
 
 
-// ccrovexpr-rev
+/* ccrovexpr-rev */
 
 static unsigned int prev_set_bit(uint8_t* bits, int from_index, int to_index, int* notfound) {
     int i;
@@ -338,7 +338,7 @@ static int reset_max(struct tm* calendar, int field) {
         calendar->tm_mon = 11;
         break;
     case CRON_CF_YEAR:
-        // I don't think this is supposed to happen ...
+        /* I don't think this is supposed to happen ... */
         fprintf(stderr, "reset CRON_CF_YEAR\n");
         break;
     default:
@@ -532,11 +532,11 @@ time_t cron_prev(cron_expr* expr, time_t date) {
     time_t original = cron_mktime(calendar);
     if (CRON_INVALID_INSTANT == original) return CRON_INVALID_INSTANT;
 
-    // calculate the previous occurrence
+    /* calculate the previous occurrence */
     int res = do_prev(expr, calendar, calendar->tm_year);
     if (0 != res) return CRON_INVALID_INSTANT;
 
-    // check for a match, try from the next second if one wasn't found
+    /* check for a match, try from the next second if one wasn't found */
     time_t calculated = cron_mktime(calendar);
     if (CRON_INVALID_INSTANT == calculated) return CRON_INVALID_INSTANT;
     if (calculated == original) {
