@@ -56,7 +56,7 @@ char* to_string(int num);
 char* str_replace(char *orig, const char *rep, const char *with);
 unsigned int parse_uint(const char* str, int* errcode);
 char** split_str(const char* str, char del, size_t* len_out);
-char* replace_ordinals(char* value, const char** arr, size_t arr_len);
+char* replace_ordinals(char* value, const char* const * arr, size_t arr_len);
 int has_char(char* str, char ch);
 unsigned int* get_range(char* field, unsigned int min, unsigned int max, const char** error);
 void set_months(char* value, uint8_t* targ, const char** error);
