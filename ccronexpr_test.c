@@ -40,11 +40,15 @@
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
+#ifndef ARRAY_LEN
+#define ARRAY_LEN(x) sizeof(x)/sizeof(x[0])
+#endif
+
 #ifdef CRON_TEST_MALLOC
 static int cronAllocations = 0;
 static int cronTotalAllocations = 0;
 static int maxAlloc = 0;
-void* cronMalloc(size_t n) {
+void* cron_malloc(size_t n) {
     cronAllocations++;
     cronTotalAllocations++;
     if (cronAllocations > maxAlloc) {
@@ -53,7 +57,7 @@ void* cronMalloc(size_t n) {
     return malloc(n);
 }
 
-void cronFree(void* p) {
+void cron_free(void* p) {
     cronAllocations--;
     free(p);
 }

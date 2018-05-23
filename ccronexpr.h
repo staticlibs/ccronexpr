@@ -22,7 +22,7 @@
  */
 
 #ifndef CCRONEXPR_H
-#define	CCRONEXPR_H
+#define CCRONEXPR_H
 
 #if defined(__cplusplus) && !defined(CRON_COMPILE_AS_CXX)
 extern "C" {
@@ -35,15 +35,6 @@ extern "C" {
 #endif /* ANDROID */
 
 #include <stdint.h> /*added for use if uint*_t data types*/
-
-#ifndef ARRAY_LEN
-#define ARRAY_LEN(x) sizeof(x)/sizeof(x[0])
-#endif
-
-#ifdef __MINGW32__
-/* To avoid warning when building with mingw */
-time_t _mkgmtime(struct tm* tm);
-#endif /* __MINGW32__ */
 
 /**
  * Parsed cron expression
@@ -99,6 +90,6 @@ time_t cron_prev(cron_expr* expr, time_t date);
 } /* extern "C"*/
 #endif
 
-#endif	/* CCRONEXPR_H */
+#endif /* CCRONEXPR_H */
 
 

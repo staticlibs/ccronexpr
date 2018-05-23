@@ -67,6 +67,12 @@ This project is released under the [Apache License 2.0](http://www.apache.org/li
 Changelog
 ---------
 
+**2018-05-23**
+
+ * merged [#8](https://github.com/staticlibs/ccronexpr/pull/8)
+ * merged [#9](https://github.com/staticlibs/ccronexpr/pull/9)
+ * minor cleanups
+
 **2018-01-27**
 
  * merged [#6](https://github.com/staticlibs/ccronexpr/pull/6)
