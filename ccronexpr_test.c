@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* 
+/*
  * File:   CronExprParser_test.cpp
  * Author: alex
  *
@@ -36,28 +36,34 @@
 #define CRON_MAX_DAYS_OF_MONTH 32
 #define CRON_MAX_MONTHS 12
 
-#define INVALID_INSTANT ((time_t) -1)
+#define INVALID_INSTANT ((time_t)-1)
 
 #define DATE_FORMAT "%Y-%m-%d_%H:%M:%S"
 
 #ifndef ARRAY_LEN
-#define ARRAY_LEN(x) sizeof(x)/sizeof(x[0])
+#define ARRAY_LEN(x) sizeof(x) / sizeof(x[0])
 #endif
 
 #ifdef CRON_TEST_MALLOC
+void *cron_malloc(size_t n);
+void cron_free(void *p);
+
 static int cronAllocations = 0;
 static int cronTotalAllocations = 0;
 static int maxAlloc = 0;
-void* cron_malloc(size_t n) {
+void *cron_malloc(size_t n)
+{
     cronAllocations++;
     cronTotalAllocations++;
-    if (cronAllocations > maxAlloc) {
+    if (cronAllocations > maxAlloc)
+    {
         maxAlloc = cronAllocations;
     }
     return malloc(n);
 }
 
-void cron_free(void* p) {
+void cron_free(void *p)
+{
     cronAllocations--;
     free(p);
 }
@@ -65,65 +71,85 @@ void cron_free(void* p) {
 
 #ifndef ANDROID
 #ifndef _WIN32
-time_t timegm(struct tm* __tp);
-#else /* _WIN32 */
-static time_t timegm(struct tm* tm) {
+time_t timegm(struct tm *__tp);
+#else  /* _WIN32 */
+static time_t timegm(struct tm *tm)
+{
     return _mkgmtime(tm);
 }
 #endif /* _WIN32 */
-#else /* ANDROID */
-static time_t timegm(struct tm * const t) {
+#else  /* ANDROID */
+static time_t timegm(struct tm *const t)
+{
     /* time_t is signed on Android. */
-    static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
-    static const time_t kTimeMin = (1L << (sizeof (time_t) * CHAR_BIT - 1));
+    static const time_t kTimeMax = ~(1L << (sizeof(time_t) * CHAR_BIT - 1));
+    static const time_t kTimeMin = (1L << (sizeof(time_t) * CHAR_BIT - 1));
     time64_t result = timegm64(t);
     if (result < kTimeMin || result > kTimeMax)
-    return -1;
+        return -1;
     return result;
 }
 #endif
 
-/**
- * uint8_t* replace char* for storing hit dates, set_bit and get_bit are used as handlers
- */
-uint8_t cron_get_bit(uint8_t* rbyte, int idx);
-void cron_set_bit(uint8_t* rbyte, int idx);
-void cron_del_bit(uint8_t* rbyte, int idx);
+static int crons_equal(cron_expr *, cron_expr *);
+int one_dec_num(const char);
+int two_dec_num(const char *);
+struct tm *poors_mans_strptime(const char *);
+void check_next(const char *, const char *, const char *);
+void check_same(const char *, const char *);
+void check_calc_invalid(void);
+void check_expr_invalid(const char *);
+void test_expr(void);
+void test_parse(void);
+void test_bits(void);
 
-static int crons_equal(cron_expr* cr1, cron_expr* cr2) {
+static int crons_equal(cron_expr *cr1, cron_expr *cr2)
+{
     unsigned int i;
-    for (i = 0; i < ARRAY_LEN(cr1->seconds); i++) {
-        if (cr1->seconds[i] != cr2->seconds[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->seconds); i++)
+    {
+        if (cr1->seconds[i] != cr2->seconds[i])
+        {
             printf("seconds not equal @%d %02x != %02x", i, cr1->seconds[i], cr2->seconds[i]);
             return 0;
         }
     }
-    for (i = 0; i < ARRAY_LEN(cr1->minutes); i++) {
-        if (cr1->minutes[i] != cr2->minutes[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->minutes); i++)
+    {
+        if (cr1->minutes[i] != cr2->minutes[i])
+        {
             printf("minutes not equal @%d %02x != %02x", i, cr1->minutes[i], cr2->minutes[i]);
             return 0;
         }
     }
-    for (i = 0; i < ARRAY_LEN(cr1->hours); i++) {
-        if (cr1->hours[i] != cr2->hours[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->hours); i++)
+    {
+        if (cr1->hours[i] != cr2->hours[i])
+        {
             printf("hours not equal @%d %02x != %02x", i, cr1->hours[i], cr2->hours[i]);
             return 0;
         }
     }
-    for (i = 0; i < ARRAY_LEN(cr1->days_of_week); i++) {
-        if (cr1->days_of_week[i] != cr2->days_of_week[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->days_of_week); i++)
+    {
+        if (cr1->days_of_week[i] != cr2->days_of_week[i])
+        {
             printf("days_of_week not equal @%d %02x != %02x", i, cr1->days_of_week[i], cr2->days_of_week[i]);
             return 0;
         }
     }
-    for (i = 0; i < ARRAY_LEN(cr1->days_of_month); i++) {
-        if (cr1->days_of_month[i] != cr2->days_of_month[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->days_of_month); i++)
+    {
+        if (cr1->days_of_month[i] != cr2->days_of_month[i])
+        {
             printf("days_of_month not equal @%d %02x != %02x", i, cr1->days_of_month[i], cr2->days_of_month[i]);
             return 0;
         }
     }
-    for (i = 0; i < ARRAY_LEN(cr1->months); i++) {
-        if (cr1->months[i] != cr2->months[i]) {
+    for (i = 0; i < ARRAY_LEN(cr1->months); i++)
+    {
+        if (cr1->months[i] != cr2->months[i])
+        {
             printf("months not equal @%d %02x != %02x", i, cr1->months[i], cr2->months[i]);
             return 0;
         }
@@ -131,8 +157,10 @@ static int crons_equal(cron_expr* cr1, cron_expr* cr2) {
     return 1;
 }
 
-int one_dec_num(const char ch) {
-    switch (ch) {
+int one_dec_num(const char ch)
+{
+    switch (ch)
+    {
     case '0':
         return 0;
     case '1':
@@ -158,16 +186,19 @@ int one_dec_num(const char ch) {
     }
 }
 
-int two_dec_num(const char* first) {
+int two_dec_num(const char *first)
+{
     return one_dec_num(first[0]) * 10 + one_dec_num(first[1]);
 }
 
 /* strptime is not available in msvc */
 /* 2012-07-01_09:53:50 */
 /* 0123456789012345678 */
-struct tm* poors_mans_strptime(const char* str) {
-    struct tm* cal = (struct tm*) malloc(sizeof(struct tm));
-    switch (str[3]) {
+struct tm *poors_mans_strptime(const char *str)
+{
+    struct tm *cal = (struct tm *)malloc(sizeof(struct tm));
+    switch (str[3])
+    {
     case '7':
         cal->tm_year = 107;
         break;
@@ -197,22 +228,30 @@ struct tm* poors_mans_strptime(const char* str) {
     return cal;
 }
 
-void check_next(const char* pattern, const char* initial, const char* expected) {
-    const char* err = NULL;
+void check_next(const char *pattern, const char *initial, const char *expected)
+{
+    const char *err = NULL;
+    struct tm *calinit;
+    time_t dateinit;
+    time_t datenext;
+    char *buffer;
+    struct tm *calnext;
+
     cron_expr parsed;
     memset(&parsed, 0, sizeof(parsed));
     cron_parse_expr(pattern, &parsed, &err);
 
-    struct tm* calinit = poors_mans_strptime(initial);
-    time_t dateinit = timegm(calinit);
+    calinit = poors_mans_strptime(initial);
+    dateinit = timegm(calinit);
     assert(-1 != dateinit);
-    time_t datenext = cron_next(&parsed, dateinit);
-    struct tm* calnext = gmtime(&datenext);
+    datenext = cron_next(&parsed, dateinit);
+    calnext = gmtime(&datenext);
     assert(calnext);
-    char* buffer = (char*) malloc(21);
+    buffer = (char *)malloc(21);
     memset(buffer, 0, 21);
     strftime(buffer, 20, DATE_FORMAT, calnext);
-    if (0 != strcmp(expected, buffer)) {
+    if (0 != strcmp(expected, buffer))
+    {
         printf("Pattern: %s\n", pattern);
         printf("Initial: %s\n", initial);
         printf("Expected: %s\n", expected);
@@ -223,93 +262,103 @@ void check_next(const char* pattern, const char* initial, const char* expected) 
     free(calinit);
 }
 
-void check_same(const char* expr1, const char* expr2) {
+void check_same(const char *expr1, const char *expr2)
+{
     cron_expr parsed1;
+    cron_expr parsed2;
+
     memset(&parsed1, 0, sizeof(parsed1));
     cron_parse_expr(expr1, &parsed1, NULL);
-    cron_expr parsed2;
     memset(&parsed2, 0, sizeof(parsed2));
     cron_parse_expr(expr2, &parsed2, NULL);
     assert(crons_equal(&parsed1, &parsed2));
 }
 
-void check_calc_invalid() {
+void check_calc_invalid()
+{
+    struct tm *calinit;
+    time_t res;
+    time_t dateinit;
+
     cron_expr parsed;
     memset(&parsed, 0, sizeof(parsed));
     cron_parse_expr("0 0 0 31 6 *", &parsed, NULL);
-    struct tm * calinit = poors_mans_strptime("2012-07-01_09:53:50");
-    time_t dateinit = timegm(calinit);
-    time_t res = cron_next(&parsed, dateinit);
+    calinit = poors_mans_strptime("2012-07-01_09:53:50");
+    dateinit = timegm(calinit);
+    res = cron_next(&parsed, dateinit);
     assert(INVALID_INSTANT == res);
     free(calinit);
 }
 
-void check_expr_invalid(const char* expr) {
-    const char* err = NULL;
+void check_expr_invalid(const char *expr)
+{
+    const char *err = NULL;
     cron_expr test;
     memset(&test, 0, sizeof(test));
     cron_parse_expr(expr, &test, &err);
     assert(err);
 }
 
-void test_expr() {
-    check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:50", "2012-07-02_01:00:00");
-    check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:00", "2012-07-02_01:00:00");
-    check_next("0 */2 1-4 * * *",   "2012-07-01_09:00:00", "2012-07-02_01:00:00");
-    check_next("* * * * * *",       "2012-07-01_09:00:00", "2012-07-01_09:00:01");
-    check_next("* * * * * *",       "2012-12-01_09:00:58", "2012-12-01_09:00:59");
-    check_next("10 * * * * *",      "2012-12-01_09:42:09", "2012-12-01_09:42:10");
-    check_next("11 * * * * *",      "2012-12-01_09:42:10", "2012-12-01_09:42:11");
-    check_next("10 * * * * *",      "2012-12-01_09:42:10", "2012-12-01_09:43:10");
-    check_next("10-15 * * * * *",   "2012-12-01_09:42:09", "2012-12-01_09:42:10");
-    check_next("10-15 * * * * *",   "2012-12-01_21:42:14", "2012-12-01_21:42:15");
-    check_next("0 * * * * *",       "2012-12-01_21:10:42", "2012-12-01_21:11:00");
-    check_next("0 * * * * *",       "2012-12-01_21:11:00", "2012-12-01_21:12:00");
-    check_next("0 11 * * * *",      "2012-12-01_21:10:42", "2012-12-01_21:11:00");
-    check_next("0 10 * * * *",      "2012-12-01_21:11:00", "2012-12-01_22:10:00");
-    check_next("0 0 * * * *",       "2012-09-30_11:01:00", "2012-09-30_12:00:00");
-    check_next("0 0 * * * *",       "2012-09-30_12:00:00", "2012-09-30_13:00:00");
-    check_next("0 0 * * * *",       "2012-09-10_23:01:00", "2012-09-11_00:00:00");
-    check_next("0 0 * * * *",       "2012-09-11_00:00:00", "2012-09-11_01:00:00");
-    check_next("0 0 0 * * *",       "2012-09-01_14:42:43", "2012-09-02_00:00:00");
-    check_next("0 0 0 * * *",       "2012-09-02_00:00:00", "2012-09-03_00:00:00");
-    check_next("* * * 10 * *",      "2012-10-09_15:12:42", "2012-10-10_00:00:00");
-    check_next("* * * 10 * *",      "2012-10-11_15:12:42", "2012-11-10_00:00:00");
-    check_next("0 0 0 * * *",       "2012-09-30_15:12:42", "2012-10-01_00:00:00");
-    check_next("0 0 0 * * *",       "2012-10-01_00:00:00", "2012-10-02_00:00:00");
-    check_next("0 0 0 * * *",       "2012-08-30_15:12:42", "2012-08-31_00:00:00");
-    check_next("0 0 0 * * *",       "2012-08-31_00:00:00", "2012-09-01_00:00:00");
-    check_next("0 0 0 * * *",       "2012-10-30_15:12:42", "2012-10-31_00:00:00");
-    check_next("0 0 0 * * *",       "2012-10-31_00:00:00", "2012-11-01_00:00:00");
-    check_next("0 0 0 1 * *",       "2012-10-30_15:12:42", "2012-11-01_00:00:00");
-    check_next("0 0 0 1 * *",       "2012-11-01_00:00:00", "2012-12-01_00:00:00");
-    check_next("0 0 0 1 * *",       "2010-12-31_15:12:42", "2011-01-01_00:00:00");
-    check_next("0 0 0 1 * *",       "2011-01-01_00:00:00", "2011-02-01_00:00:00");
-    check_next("0 0 0 31 * *",      "2011-10-30_15:12:42", "2011-10-31_00:00:00");
-    check_next("0 0 0 1 * *",       "2011-10-30_15:12:42", "2011-11-01_00:00:00");
-    check_next("* * * * * 2",       "2010-10-25_15:12:42", "2010-10-26_00:00:00");
-    check_next("* * * * * 2",       "2010-10-20_15:12:42", "2010-10-26_00:00:00");
-    check_next("* * * * * 2",       "2010-10-27_15:12:42", "2010-11-02_00:00:00");
-    check_next("55 5 * * * *",      "2010-10-27_15:04:54", "2010-10-27_15:05:55");
-    check_next("55 5 * * * *",      "2010-10-27_15:05:55", "2010-10-27_16:05:55");
-    check_next("55 * 10 * * *",     "2010-10-27_09:04:54", "2010-10-27_10:00:55");
-    check_next("55 * 10 * * *",     "2010-10-27_10:00:55", "2010-10-27_10:01:55");
-    check_next("* 5 10 * * *",      "2010-10-27_09:04:55", "2010-10-27_10:05:00");
-    check_next("* 5 10 * * *",      "2010-10-27_10:05:00", "2010-10-27_10:05:01");
-    check_next("55 * * 3 * *",      "2010-10-02_10:05:54", "2010-10-03_00:00:55");
-    check_next("55 * * 3 * *",      "2010-10-03_00:00:55", "2010-10-03_00:01:55");
-    check_next("* * * 3 11 *",      "2010-10-02_14:42:55", "2010-11-03_00:00:00");
-    check_next("* * * 3 11 *",      "2010-11-03_00:00:00", "2010-11-03_00:00:01");
-    check_next("0 0 0 29 2 *",      "2007-02-10_14:42:55", "2008-02-29_00:00:00");
-    check_next("0 0 0 29 2 *",      "2008-02-29_00:00:00", "2012-02-29_00:00:00");
+void test_expr()
+{
+    check_next("*/15 * 1-4 * * *", "2012-07-01_09:53:50", "2012-07-02_01:00:00");
+    check_next("*/15 * 1-4 * * *", "2012-07-01_09:53:00", "2012-07-02_01:00:00");
+    check_next("0 */2 1-4 * * *", "2012-07-01_09:00:00", "2012-07-02_01:00:00");
+    check_next("* * * * * *", "2012-07-01_09:00:00", "2012-07-01_09:00:01");
+    check_next("* * * * * *", "2012-12-01_09:00:58", "2012-12-01_09:00:59");
+    check_next("10 * * * * *", "2012-12-01_09:42:09", "2012-12-01_09:42:10");
+    check_next("11 * * * * *", "2012-12-01_09:42:10", "2012-12-01_09:42:11");
+    check_next("10 * * * * *", "2012-12-01_09:42:10", "2012-12-01_09:43:10");
+    check_next("10-15 * * * * *", "2012-12-01_09:42:09", "2012-12-01_09:42:10");
+    check_next("10-15 * * * * *", "2012-12-01_21:42:14", "2012-12-01_21:42:15");
+    check_next("0 * * * * *", "2012-12-01_21:10:42", "2012-12-01_21:11:00");
+    check_next("0 * * * * *", "2012-12-01_21:11:00", "2012-12-01_21:12:00");
+    check_next("0 11 * * * *", "2012-12-01_21:10:42", "2012-12-01_21:11:00");
+    check_next("0 10 * * * *", "2012-12-01_21:11:00", "2012-12-01_22:10:00");
+    check_next("0 0 * * * *", "2012-09-30_11:01:00", "2012-09-30_12:00:00");
+    check_next("0 0 * * * *", "2012-09-30_12:00:00", "2012-09-30_13:00:00");
+    check_next("0 0 * * * *", "2012-09-10_23:01:00", "2012-09-11_00:00:00");
+    check_next("0 0 * * * *", "2012-09-11_00:00:00", "2012-09-11_01:00:00");
+    check_next("0 0 0 * * *", "2012-09-01_14:42:43", "2012-09-02_00:00:00");
+    check_next("0 0 0 * * *", "2012-09-02_00:00:00", "2012-09-03_00:00:00");
+    check_next("* * * 10 * *", "2012-10-09_15:12:42", "2012-10-10_00:00:00");
+    check_next("* * * 10 * *", "2012-10-11_15:12:42", "2012-11-10_00:00:00");
+    check_next("0 0 0 * * *", "2012-09-30_15:12:42", "2012-10-01_00:00:00");
+    check_next("0 0 0 * * *", "2012-10-01_00:00:00", "2012-10-02_00:00:00");
+    check_next("0 0 0 * * *", "2012-08-30_15:12:42", "2012-08-31_00:00:00");
+    check_next("0 0 0 * * *", "2012-08-31_00:00:00", "2012-09-01_00:00:00");
+    check_next("0 0 0 * * *", "2012-10-30_15:12:42", "2012-10-31_00:00:00");
+    check_next("0 0 0 * * *", "2012-10-31_00:00:00", "2012-11-01_00:00:00");
+    check_next("0 0 0 1 * *", "2012-10-30_15:12:42", "2012-11-01_00:00:00");
+    check_next("0 0 0 1 * *", "2012-11-01_00:00:00", "2012-12-01_00:00:00");
+    check_next("0 0 0 1 * *", "2010-12-31_15:12:42", "2011-01-01_00:00:00");
+    check_next("0 0 0 1 * *", "2011-01-01_00:00:00", "2011-02-01_00:00:00");
+    check_next("0 0 0 31 * *", "2011-10-30_15:12:42", "2011-10-31_00:00:00");
+    check_next("0 0 0 1 * *", "2011-10-30_15:12:42", "2011-11-01_00:00:00");
+    check_next("* * * * * 2", "2010-10-25_15:12:42", "2010-10-26_00:00:00");
+    check_next("* * * * * 2", "2010-10-20_15:12:42", "2010-10-26_00:00:00");
+    check_next("* * * * * 2", "2010-10-27_15:12:42", "2010-11-02_00:00:00");
+    check_next("55 5 * * * *", "2010-10-27_15:04:54", "2010-10-27_15:05:55");
+    check_next("55 5 * * * *", "2010-10-27_15:05:55", "2010-10-27_16:05:55");
+    check_next("55 * 10 * * *", "2010-10-27_09:04:54", "2010-10-27_10:00:55");
+    check_next("55 * 10 * * *", "2010-10-27_10:00:55", "2010-10-27_10:01:55");
+    check_next("* 5 10 * * *", "2010-10-27_09:04:55", "2010-10-27_10:05:00");
+    check_next("* 5 10 * * *", "2010-10-27_10:05:00", "2010-10-27_10:05:01");
+    check_next("55 * * 3 * *", "2010-10-02_10:05:54", "2010-10-03_00:00:55");
+    check_next("55 * * 3 * *", "2010-10-03_00:00:55", "2010-10-03_00:01:55");
+    check_next("* * * 3 11 *", "2010-10-02_14:42:55", "2010-11-03_00:00:00");
+    check_next("* * * 3 11 *", "2010-11-03_00:00:00", "2010-11-03_00:00:01");
+    check_next("0 0 0 29 2 *", "2007-02-10_14:42:55", "2008-02-29_00:00:00");
+    check_next("0 0 0 29 2 *", "2008-02-29_00:00:00", "2012-02-29_00:00:00");
     check_next("0 0 7 ? * MON-FRI", "2009-09-26_00:42:55", "2009-09-28_07:00:00");
     check_next("0 0 7 ? * MON-FRI", "2009-09-28_07:00:00", "2009-09-29_07:00:00");
-    check_next("0 30 23 30 1/3 ?",  "2010-12-30_00:00:00", "2011-01-30_23:30:00");
-    check_next("0 30 23 30 1/3 ?",  "2011-01-30_23:30:00", "2011-04-30_23:30:00");
-    check_next("0 30 23 30 1/3 ?",  "2011-04-30_23:30:00", "2011-07-30_23:30:00");    
+    check_next("0 30 23 30 1/3 ?", "2010-12-30_00:00:00", "2011-01-30_23:30:00");
+    check_next("0 30 23 30 1/3 ?", "2011-01-30_23:30:00", "2011-04-30_23:30:00");
+    check_next("0 30 23 30 1/3 ?", "2011-04-30_23:30:00", "2011-07-30_23:30:00");
 }
 
-void test_parse() {
+void test_parse()
+{
 
     check_same("* * * 2 * *", "* * * 2 * ?");
     check_same("57,59 * * * * *", "57/2 * * * * *");
@@ -342,34 +391,42 @@ void test_parse() {
     check_expr_invalid("* 1 1 0 * *");
 }
 
-void test_bits() {
+void test_bits()
+{
 
     uint8_t testbyte[8];
-    memset(testbyte, 0, 8);
     int err = 0;
     int i;
 
-    for (i = 0; i <= 63; i++) {
+    memset(testbyte, 0, 8);
+
+    for (i = 0; i <= 63; i++)
+    {
         cron_set_bit(testbyte, i);
-        if (!cron_get_bit(testbyte, i)) {
+        if (!cron_get_bit(testbyte, i))
+        {
             printf("Bit set error! Bit: %d!\n", i);
             err = 1;
         }
         cron_del_bit(testbyte, i);
-        if (cron_get_bit(testbyte, i)) {
+        if (cron_get_bit(testbyte, i))
+        {
             printf("Bit clear error! Bit: %d!\n", i);
             err = 1;
         }
         assert(!err);
     }
 
-    for (i = 0; i < 12; i++) {
+    for (i = 0; i < 12; i++)
+    {
         cron_set_bit(testbyte, i);
     }
-    if (testbyte[0] != 0xff) {
+    if (testbyte[0] != 0xff)
+    {
         err = 1;
     }
-    if (testbyte[1] != 0x0f) {
+    if (testbyte[1] != 0x0f)
+    {
         err = 1;
     }
 
@@ -378,12 +435,16 @@ void test_bits() {
 
 /* For this test to work you need to set "-DCRON_TEST_MALLOC=1"*/
 #ifdef CRON_TEST_MALLOC
-void test_memory() {
+void test_memory(void);
+
+void test_memory()
+{
     cron_expr cron;
-    const char* err;
+    const char *err;
 
     cron_parse_expr("* * * * * *", &cron, &err);
-    if (cronAllocations != 0) {
+    if (cronAllocations != 0)
+    {
         printf("Allocations != 0 but %d", cronAllocations);
         assert(0);
     }
@@ -391,17 +452,17 @@ void test_memory() {
 }
 #endif
 
-int main() {
+int main()
+{
 
     test_bits();
 
     test_expr();
     test_parse();
     check_calc_invalid();
-    #ifdef CRON_TEST_MALLOC
+#ifdef CRON_TEST_MALLOC
     test_memory(); /* For this test to work you need to set "-DCRON_TEST_MALLOC=1"*/
-    #endif
+#endif
     printf("\nAll OK!");
     return 0;
 }
-

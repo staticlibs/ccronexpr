@@ -1,6 +1,7 @@
 Cron expression parsing in ANSI C
 =================================
 
+
 [![travis](https://travis-ci.org/staticlibs/ccronexpr.svg?branch=master)](https://travis-ci.org/staticlibs/ccronexpr)
 [![appveyor](https://ci.appveyor.com/api/projects/status/github/staticlibs/ccronexpr?svg=true)](https://ci.appveyor.com/project/staticlibs/ccronexpr)
 
@@ -11,6 +12,12 @@ Supports cron expressions with `seconds` field. Based on implementation of [Cron
 Compiles and should work on Linux (GCC/Clang), Mac OS (Clang), Windows (MSVC), Android NDK, iOS and possibly on other platforms with `time.h` support.
 
 Supports compilation in C (89) and in C++ modes.
+
+FORK
+====
+
+Compiles into C90.
+Added some compile flags: `-Werror -Wno-unused-parameter -Wmissing-prototypes -Wdeclaration-after-statement -Wpointer-arith  -Wendif-labels -Wmissing-format-attribute -Wformat-security`
 
 Usage example
 -------------
@@ -29,7 +36,7 @@ Usage example
 Compilation and tests run examples
 ----------------------------------
 
-    gcc ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c89 -DCRON_TEST_MALLOC -o a.out && ./a.out
+    gcc ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -Werror -Wno-unused-parameter -Wmissing-prototypes -Wdeclaration-after-statement -Wpointer-arith  -Wendif-labels -Wmissing-format-attribute -Wformat-security -std=c90 -DCRON_TEST_MALLOC -o a.out && ./a.out
     g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 -DCRON_TEST_MALLOC -o a.out && ./a.out
     g++ ccronexpr.c ccronexpr_test.c -I. -Wall -Wextra -std=c++11 -DCRON_TEST_MALLOC -DCRON_COMPILE_AS_CXX -o a.out && ./a.out
 
@@ -55,7 +62,7 @@ Timezones
 ---------
 
 This implementation does not support explicit timezones handling. By default all dates are
-processed as UTC (GMT) dates without timezone infomation. 
+processed as UTC (GMT) dates without timezone infomation.
 
 To use local dates (current system timezone) instead of GMT compile with `-DCRON_USE_LOCAL_TIME`.
 
