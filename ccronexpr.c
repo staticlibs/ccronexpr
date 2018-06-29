@@ -488,7 +488,8 @@ static int to_upper(char* str) {
     if (!str) return 1;
     int i;
     for (i = 0; '\0' != str[i]; i++) {
-        str[i] = (char) toupper(str[i]);
+        int c = (int)str[i];
+        str[i] = (char) toupper(c);
     }
     return 0;
 }
@@ -570,14 +571,15 @@ static char** split_str(const char* str, char del, size_t* len_out) {
         stlen += 1;
         if (stlen >= CRON_MAX_STR_LEN_TO_SPLIT) goto return_error;
     }
-
+    
     for (i = 0; i < stlen; i++) {
+        int c = str[i];
         if (del == str[i]) {
             if (accum > 0) {
                 len += 1;
                 accum = 0;
             }
-        } else if (!isspace(str[i])) {
+        } else if (!isspace(c)) {
             accum += 1;
         }
     }
@@ -595,6 +597,7 @@ static char** split_str(const char* str, char del, size_t* len_out) {
     memset(res, 0, len * sizeof(char*));
 
     for (i = 0; i < stlen; i++) {
+        int c = str[i];
         if (del == str[i]) {
             if (bi > 0) {
                 tmp = strdupl(buf, bi);
@@ -603,7 +606,7 @@ static char** split_str(const char* str, char del, size_t* len_out) {
                 memset(buf, 0, stlen + 1);
                 bi = 0;
             }
-        } else if (!isspace(str[i])) {
+        } else if (!isspace(c)) {
             buf[bi++] = str[i];
         }
     }
