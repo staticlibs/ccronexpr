@@ -167,9 +167,7 @@ int two_dec_num(const char* first) {
 /* 0123456789012345678 */
 struct tm* poors_mans_strptime(const char* str) {
     struct tm* cal = (struct tm*) malloc(sizeof(struct tm));
-#ifndef _WIN32
-    (void)strptime(str, "%Y-%m-%d_%H:%M:%S", cal);
-#else /* _WIN32 */
+#if defined(_WIN32) || defined(_WIN64)
     switch (str[3]) {
     case '7':
         cal->tm_year = 107;
@@ -197,7 +195,9 @@ struct tm* poors_mans_strptime(const char* str) {
     cal->tm_hour = two_dec_num(str + 11);
     cal->tm_min = two_dec_num(str + 14);
     cal->tm_sec = two_dec_num(str + 17);
-#endif /* _WIN32 */
+#else /* !_WIN32 && !_WIN64*/
+    (void)strptime(str, "%Y-%m-%d_%H:%M:%S", cal);
+#endif /* _WIN32 || _WIN64 */
     return cal;
 }
 
