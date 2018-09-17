@@ -167,6 +167,9 @@ int two_dec_num(const char* first) {
 /* 0123456789012345678 */
 struct tm* poors_mans_strptime(const char* str) {
     struct tm* cal = (struct tm*) malloc(sizeof(struct tm));
+#ifndef _WIN32
+    (void)strptime(str, "%Y-%m-%d_%H:%M:%S", cal);
+#else /* _WIN32 */
     switch (str[3]) {
     case '7':
         cal->tm_year = 107;
@@ -194,6 +197,7 @@ struct tm* poors_mans_strptime(const char* str) {
     cal->tm_hour = two_dec_num(str + 11);
     cal->tm_min = two_dec_num(str + 14);
     cal->tm_sec = two_dec_num(str + 17);
+#endif /* _WIN32 */
     return cal;
 }
 
@@ -256,6 +260,11 @@ void test_expr() {
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:50", "2012-07-02_01:00:00");
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:00", "2012-07-02_01:00:00");
     check_next("0 */2 1-4 * * *",   "2012-07-01_09:00:00", "2012-07-02_01:00:00");
+    check_next("0 */2 * * * *",     "2012-07-01_09:00:00", "2012-07-01_09:02:00");
+    check_next("0 */2 * * * *",     "2013-07-01_09:00:00", "2013-07-01_09:02:00");
+    check_next("0 */2 * * * *",     "2018-09-14_14:24:00", "2018-09-14_14:26:00");
+    check_next("0 */2 * * * *",     "2018-09-14_14:25:00", "2018-09-14_14:26:00");
+    check_next("0 */20 * * * *",    "2018-09-14_14:24:00", "2018-09-14_14:40:00");
     check_next("* * * * * *",       "2012-07-01_09:00:00", "2012-07-01_09:00:01");
     check_next("* * * * * *",       "2012-12-01_09:00:58", "2012-12-01_09:00:59");
     check_next("10 * * * * *",      "2012-12-01_09:42:09", "2012-12-01_09:42:10");
