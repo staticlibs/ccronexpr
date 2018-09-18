@@ -162,31 +162,19 @@ int two_dec_num(const char* first) {
     return one_dec_num(first[0]) * 10 + one_dec_num(first[1]);
 }
 
+int four_dec_num(const char *first) {
+    return ((one_dec_num(first[0]) * 1000)
+          + (one_dec_num(first[1]) * 100)
+          + (one_dec_num(first[2]) * 10)
+          + (one_dec_num(first[3]) * 1));
+}
+
 /* strptime is not available in msvc */
 /* 2012-07-01_09:53:50 */
 /* 0123456789012345678 */
 struct tm* poors_mans_strptime(const char* str) {
     struct tm* cal = (struct tm*) malloc(sizeof(struct tm));
-    switch (str[3]) {
-    case '7':
-        cal->tm_year = 107;
-        break;
-    case '8':
-        cal->tm_year = 108;
-        break;
-    case '9':
-        cal->tm_year = 109;
-        break;
-    case '0':
-        cal->tm_year = 110;
-        break;
-    case '1':
-        cal->tm_year = 111;
-        break;
-    case '2':
-        cal->tm_year = 112;
-        break;
-    }
+    cal->tm_year = four_dec_num(str) - 1900;
     cal->tm_mon = two_dec_num(str + 5) - 1;
     cal->tm_mday = two_dec_num(str + 8);
     cal->tm_wday = 0;
@@ -256,6 +244,11 @@ void test_expr() {
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:50", "2012-07-02_01:00:00");
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:00", "2012-07-02_01:00:00");
     check_next("0 */2 1-4 * * *",   "2012-07-01_09:00:00", "2012-07-02_01:00:00");
+    check_next("0 */2 * * * *",     "2012-07-01_09:00:00", "2012-07-01_09:02:00");
+    check_next("0 */2 * * * *",     "2013-07-01_09:00:00", "2013-07-01_09:02:00");
+    check_next("0 */2 * * * *",     "2018-09-14_14:24:00", "2018-09-14_14:26:00");
+    check_next("0 */2 * * * *",     "2018-09-14_14:25:00", "2018-09-14_14:26:00");
+    check_next("0 */20 * * * *",    "2018-09-14_14:24:00", "2018-09-14_14:40:00");
     check_next("* * * * * *",       "2012-07-01_09:00:00", "2012-07-01_09:00:01");
     check_next("* * * * * *",       "2012-12-01_09:00:58", "2012-12-01_09:00:59");
     check_next("10 * * * * *",      "2012-12-01_09:42:09", "2012-12-01_09:42:10");
