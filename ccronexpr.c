@@ -69,13 +69,6 @@ static const char* const MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MA
                                 (abs(num) < 100000000 ? 8 : \
                                 (abs(num) < 1000000000 ? 9 : 10)))))))))
 
-#ifndef _WIN32
-struct tm *gmtime_r(const time_t *timep, struct tm *result);
-#ifdef CRON_USE_LOCAL_TIME
-struct tm *localtime_r(const time_t *timep, struct tm *result);
-#endif /* CRON_USE_LOCAL_TIME */
-#endif /* _WIN32 */
-
 #ifndef CRON_TEST_MALLOC
 #define cron_malloc(x) malloc(x);
 #define cron_free(x) free(x);
@@ -84,68 +77,86 @@ void* cron_malloc(size_t n);
 void cron_free(void* p);
 #endif /* CRON_TEST_MALLOC */
 
+#ifdef _WIN32
+#ifdef CRON_USE_LOCAL_TIME
+time_t cron_mktime(struct tm* tm) {
+    return mktime(tm);
+}
+
+struct tm* cron_time(time_t* date, struct tm* out) {
+    errno_t err = localtime_s(out, date);
+    return 0 == err ? out : NULL;
+}
+#else /* CRON_USE_LOCAL_TIME */
 #ifdef __MINGW32__
 /* To avoid warning when building with mingw */
 time_t _mkgmtime(struct tm* tm);
 #endif /* __MINGW32__ */
 
-/* Defining 'cron_mktime' to use use UTC (default) or local time */
-#ifndef CRON_USE_LOCAL_TIME
-
-/* http://stackoverflow.com/a/22557778 */
-#ifdef _WIN32
 time_t cron_mktime(struct tm* tm) {
     return _mkgmtime(tm);
 }
-#else /* !_WIN32 */
-#ifndef ANDROID
-/* can be hidden in time.h */
-time_t timegm(struct tm* __tp);
-#endif /* ANDROID */
-time_t cron_mktime(struct tm* tm) {
-#ifndef ANDROID
-    return timegm(tm);
-#else /* ANDROID */
-    /* https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/os_compat_android.cc#L20 */
-    static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
-    static const time_t kTimeMin = (1L << (sizeof (time_t) * CHAR_BIT - 1));
-    time64_t result = timegm64(tm);
-    if (result < kTimeMin || result > kTimeMax) return -1;
-    return result;
-#endif /* ANDROID */
-}
-#endif /* _WIN32 */
 
 struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef __MINGW32__
     (void)(out); /* To avoid unused warning */
     return gmtime(date);
 #else /* !__MINGW32__ */
-#ifdef _WIN32
     errno_t err = gmtime_s(out, date);
     return 0 == err ? out : NULL;
-#else /* !_WIN32 */
-    return gmtime_r(date, out);
-#endif /* _WIN32 */
-#endif /* __MINGW32__ */
+#endif
 }
 
-#else /* CRON_USE_LOCAL_TIME */
+#endif /* CRON_USE_LOCAL_TIME */
+#elif defined(ANDROID)
+struct tm *gmtime_r(const time_t *timep, struct tm *result);
+
+#ifdef CRON_USE_LOCAL_TIME
+struct tm *localtime_r(const time_t *timep, struct tm *result);
 
 time_t cron_mktime(struct tm* tm) {
     return mktime(tm);
 }
 
 struct tm* cron_time(time_t* date, struct tm* out) {
-#ifdef _WIN32
-    errno_t err = localtime_s(out, date);
-    return 0 == err ? out : NULL;
-#else /* _WIN32 */    
     return localtime_r(date, out);
-#endif /* _WIN32 */    
+}
+#else /* CRON_USE_LOCAL_TIME */
+time_t cron_mktime(struct tm* tm) {
+        /* https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/os_compat_android.cc#L20 */
+    static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
+    static const time_t kTimeMin = (1L << (sizeof (time_t) * CHAR_BIT - 1));
+    time64_t result = timegm64(tm);
+    if (result < kTimeMin || result > kTimeMax) return -1;
+    return result;
 }
 
+struct tm* cron_time(time_t* date, struct tm* out) {
+    return gmtime_r(date, out);
+}
 #endif /* CRON_USE_LOCAL_TIME */
+#elif defined(ESP8266) || defined(ESP32)
+#ifdef CRON_USE_LOCAL_TIME
+time_t cron_mktime(struct tm* tm) {
+   return mktime(tm);
+}
+struct tm* cron_time(time_t* date, struct tm* out) {
+    return localtime_r(date, out);
+}
+#else /* CRON_USE_LOCAL_TIME */
+time_t cron_mktime(struct tm* tm) {
+  time_t t = mktime( tm );
+  #ifdef __TM_GMTOFF
+    return t + localtime( &t )->tm_gmtoff;
+  #else
+    return t;
+  #endif
+}
+struct tm* cron_time(time_t* date, struct tm* out) {
+    return gmtime_r(date, out);
+}
+#endif /* CRON_USE_LOCAL_TIME*/
+#endif
 
 void cron_set_bit(uint8_t* rbyte, int idx) {
     uint8_t j = (uint8_t) (idx / 8);
@@ -898,7 +909,7 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
 
     goto return_res;
 
-    return_res: 
+    return_res:
     free_splitted(fields, len);
 }
 
