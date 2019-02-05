@@ -824,11 +824,12 @@ static void set_months(char* value, uint8_t* targ, const char** error) {
 
     char* replaced = NULL;
 
-    err = to_upper(value);
-    if (err) return;
+    to_upper(value);
     replaced = replace_ordinals(value, MONTHS_ARR, CRON_MONTHS_ARR_LEN);
-    if (!replaced) return;
-
+    if (!replaced) {
+        *error = "Invalid month format";
+        return;
+    }
     set_number_hits(replaced, targ, 1, max + 1, error);
     cron_free(replaced);
 
@@ -841,11 +842,26 @@ static void set_months(char* value, uint8_t* targ, const char** error) {
     }
 }
 
-static void set_days(char* field, uint8_t* targ, int max, const char** error) {
+static void set_days_of_week(char* field, uint8_t* targ, const char** error) {
+    unsigned int max = 7;
+    char* replaced = NULL;
+
     if (1 == strlen(field) && '?' == field[0]) {
         field[0] = '*';
     }
-    set_number_hits(field, targ, 0, max, error);
+    to_upper(field);
+    replaced = replace_ordinals(field, DAYS_ARR, CRON_DAYS_ARR_LEN);
+    if (!replaced) {
+        *error = "Invalid day format";
+        return;
+    }
+    set_number_hits(replaced, targ, 0, max + 1, error);
+    cron_free(replaced);
+    if (cron_get_bit(targ, 7)) {
+        /* Sunday can be represented as 0 or 7*/
+        cron_set_bit(targ, 0);
+        cron_del_bit(targ, 7);
+    }
 }
 
 static void set_days_of_month(char* field, uint8_t* targ, const char** error) {
@@ -881,19 +897,11 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
     if (*error) goto return_res;
     set_number_hits(fields[2], target->hours, 0, 24, error);
     if (*error) goto return_res;
-    to_upper(fields[5]);
-    days_replaced = replace_ordinals(fields[5], DAYS_ARR, CRON_DAYS_ARR_LEN);
-    set_days(days_replaced, target->days_of_week, 8, error);
-    cron_free(days_replaced);
-    if (*error) goto return_res;
-    if (cron_get_bit(target->days_of_week, 7)) {
-        /* Sunday can be represented as 0 or 7*/
-        cron_set_bit(target->days_of_week, 0);
-        cron_del_bit(target->days_of_week, 7);
-    }
     set_days_of_month(fields[3], target->days_of_month, error);
     if (*error) goto return_res;
     set_months(fields[4], target->months, error);
+    if (*error) goto return_res;
+    set_days_of_week(fields[5], target->days_of_week, error);
     if (*error) goto return_res;
 
     goto return_res;
