@@ -818,7 +818,6 @@ static void set_number_hits(const char* value, uint8_t* target, unsigned int min
 }
 
 static void set_months(char* value, uint8_t* targ, const char** error) {
-    int err;
     unsigned int i;
     unsigned int max = 12;
 
@@ -876,7 +875,6 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
     const char* err_local;
     size_t len = 0;
     char** fields = NULL;
-    char* days_replaced = NULL;
     if (!error) {
         error = &err_local;
     }
