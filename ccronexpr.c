@@ -133,6 +133,7 @@ struct tm* cron_time(time_t* date, struct tm* out) {
 #else /* CRON_USE_LOCAL_TIME */
 
 time_t cron_mktime(struct tm* tm) {
+    tm->tm_isdst = -1;
     return mktime(tm);
 }
 
