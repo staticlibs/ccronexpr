@@ -192,10 +192,18 @@ void check_next(const char* pattern, const char* initial, const char* expected) 
     cron_parse_expr(pattern, &parsed, &err);
 
     struct tm* calinit = poors_mans_strptime(initial);
+#ifdef CRON_USE_LOCAL_TIME
+    time_t dateinit = mktime(calinit);
+#else
     time_t dateinit = timegm(calinit);
+#endif
     assert(-1 != dateinit);
     time_t datenext = cron_next(&parsed, dateinit);
+#ifdef CRON_USE_LOCAL_TIME
+    struct tm* calnext = localtime(&datenext);
+#else
     struct tm* calnext = gmtime(&datenext);
+#endif
     assert(calnext);
     char* buffer = (char*) malloc(21);
     memset(buffer, 0, 21);
@@ -241,6 +249,9 @@ void check_expr_invalid(const char* expr) {
 }
 
 void test_expr() {
+#ifdef CRON_USE_LOCAL_TIME
+    check_next("* 15 11 * * *",     "2019-03-09_11:43:00", "2019-03-10_11:15:00");
+#else
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:50", "2012-07-02_01:00:00");
     check_next("*/15 * 1-4 * * *",  "2012-07-01_09:53:00", "2012-07-02_01:00:00");
     check_next("0 */2 1-4 * * *",   "2012-07-01_09:00:00", "2012-07-02_01:00:00");
@@ -300,6 +311,7 @@ void test_expr() {
     check_next("0 30 23 30 1/3 ?",  "2010-12-30_00:00:00", "2011-01-30_23:30:00");
     check_next("0 30 23 30 1/3 ?",  "2011-01-30_23:30:00", "2011-04-30_23:30:00");
     check_next("0 30 23 30 1/3 ?",  "2011-04-30_23:30:00", "2011-07-30_23:30:00");    
+#endif
 }
 
 void test_parse() {
