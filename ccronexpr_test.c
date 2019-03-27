@@ -174,6 +174,8 @@ int four_dec_num(const char *first) {
 /* 0123456789012345678 */
 struct tm* poors_mans_strptime(const char* str) {
     struct tm* cal = (struct tm*) malloc(sizeof(struct tm));
+    assert(cal != NULL);
+    memset(cal, 0, sizeof(struct tm));
     cal->tm_year = four_dec_num(str) - 1900;
     cal->tm_mon = two_dec_num(str + 5) - 1;
     cal->tm_mday = two_dec_num(str + 8);
