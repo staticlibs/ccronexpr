@@ -890,6 +890,7 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
         *error = "Invalid number of fields, expression must consist of 6 fields";
         goto return_res;
     }
+    memset(target, 0, sizeof(*target));
     set_number_hits(fields[0], target->seconds, 0, 60, error);
     if (*error) goto return_res;
     set_number_hits(fields[1], target->minutes, 0, 60, error);
