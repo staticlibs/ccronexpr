@@ -884,6 +884,10 @@ void cron_parse_expr(const char* expression, cron_expr* target, const char** err
         *error = "Invalid NULL expression";
         goto return_res;
     }
+    if (!target) {
+        *error = "Invalid NULL target";
+        goto return_res;
+    }
 
     fields = split_str(expression, ' ', &len);
     if (len != 6) {
