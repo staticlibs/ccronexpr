@@ -69,7 +69,7 @@ static const char* const MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MA
                                 (abs(num) < 100000000 ? 8 : \
                                 (abs(num) < 1000000000 ? 9 : 10)))))))))
 
-#ifndef _WIN32
+#if !defined _WIN32 && !defined(__AVR__)
 struct tm *gmtime_r(const time_t *timep, struct tm *result);
 #ifdef CRON_USE_LOCAL_TIME
 struct tm *localtime_r(const time_t *timep, struct tm *result);
@@ -97,14 +97,35 @@ time_t _mkgmtime(struct tm* tm);
 time_t cron_mktime(struct tm* tm) {
     return _mkgmtime(tm);
 }
-#else /* !_WIN32 */
-#ifndef ANDROID
+    /* !_WIN32 */
+/* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
+#elif defined(__AVR__)
+time_t cron_mktime(struct tm* tm) {
+    return mk_gmtime(tm);
+}
+#else
+#if !defined(ANDROID) && !defined(ESP8266)
 /* can be hidden in time.h */
 time_t timegm(struct tm* __tp);
-#endif /* ANDROID */
+#endif /* NOT ANDROID OR ESP8266 */
 time_t cron_mktime(struct tm* tm) {
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(ESP8266)
     return timegm(tm);
+#elif defined(ESP8266)
+    /* https://linux.die.net/man/3/timegm */
+    /* portable version of timegm() */
+    time_t ret;
+    char *tz;
+    tz = getenv("TZ");
+    setenv("TZ", "UTC+0", 1);
+    tzset();
+    ret = mktime(tm);
+    if (tz)
+        setenv("TZ", tz, 1);
+    else
+        unsetenv("TZ");
+    tzset();
+    return ret;
 #else /* ANDROID */
     /* https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/os_compat_android.cc#L20 */
     static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
@@ -124,6 +145,10 @@ struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
     errno_t err = gmtime_s(out, date);
     return 0 == err ? out : NULL;
+#elif defined(__AVR__)
+    /* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
+    gmtime_r(date, out);
+    return out;
 #else /* !_WIN32 */
     return gmtime_r(date, out);
 #endif /* _WIN32 */
@@ -141,6 +166,10 @@ struct tm* cron_time(time_t* date, struct tm* out) {
 #ifdef _WIN32
     errno_t err = localtime_s(out, date);
     return 0 == err ? out : NULL;
+#elif defined(__AVR__)
+    /* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
+    localtime_r(date, out);
+    return out;
 #else /* _WIN32 */    
     return localtime_r(date, out);
 #endif /* _WIN32 */    
