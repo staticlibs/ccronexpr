@@ -69,13 +69,6 @@ static const char* const MONTHS_ARR[] = { "FOO", "JAN", "FEB", "MAR", "APR", "MA
                                 (abs(num) < 100000000 ? 8 : \
                                 (abs(num) < 1000000000 ? 9 : 10)))))))))
 
-#if !defined _WIN32 && !defined(__AVR__)
-struct tm *gmtime_r(const time_t *timep, struct tm *result);
-#ifdef CRON_USE_LOCAL_TIME
-struct tm *localtime_r(const time_t *timep, struct tm *result);
-#endif /* CRON_USE_LOCAL_TIME */
-#endif /* _WIN32 */
-
 #ifndef CRON_TEST_MALLOC
 #define cron_malloc(x) malloc(x);
 #define cron_free(x) free(x);
@@ -84,98 +77,121 @@ void* cron_malloc(size_t n);
 void cron_free(void* p);
 #endif /* CRON_TEST_MALLOC */
 
+/**
+ * Time functions from standard library.
+ * This part defines: cron_mktime: create time_t from tm
+ *                    cron_time: create tm from time_t
+ */
+
+/* forward declarations for platforms that may need them */
+/* can be hidden in time.h */
+#if !defined(_WIN32) && !defined(__AVR__) && !defined(ESP8266) && !defined(ANDROID)
+struct tm *gmtime_r(const time_t *timep, struct tm *result);
+time_t timegm(struct tm* __tp);
+struct tm *localtime_r(const time_t *timep, struct tm *result);
+#endif /* PLEASE CHECK _WIN32 AND ANDROID NEEDS FOR THESE DECLARATIONS */
 #ifdef __MINGW32__
 /* To avoid warning when building with mingw */
 time_t _mkgmtime(struct tm* tm);
 #endif /* __MINGW32__ */
 
-/* Defining 'cron_mktime' to use use UTC (default) or local time */
-#ifndef CRON_USE_LOCAL_TIME
-
+/* function definitions */
+time_t cron_mktime_gm(struct tm* tm) {
+#if defined(_WIN32)
 /* http://stackoverflow.com/a/22557778 */
-#ifdef _WIN32
-time_t cron_mktime(struct tm* tm) {
     return _mkgmtime(tm);
-}
-    /* !_WIN32 */
-/* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
 #elif defined(__AVR__)
-time_t cron_mktime(struct tm* tm) {
+/* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
     return mk_gmtime(tm);
-}
-#else
-#if !defined(ANDROID) && !defined(ESP8266)
-/* can be hidden in time.h */
-time_t timegm(struct tm* __tp);
-#endif /* NOT ANDROID OR ESP8266 */
-time_t cron_mktime(struct tm* tm) {
-#if !defined(ANDROID) && !defined(ESP8266)
-    return timegm(tm);
 #elif defined(ESP8266)
     /* https://linux.die.net/man/3/timegm */
+    /* http://www.catb.org/esr/time-programming/ */
     /* portable version of timegm() */
     time_t ret;
     char *tz;
     tz = getenv("TZ");
+    if (tz)
+        tz = strdup(tz);
     setenv("TZ", "UTC+0", 1);
     tzset();
     ret = mktime(tm);
-    if (tz)
+    if (tz) {
         setenv("TZ", tz, 1);
-    else
+        free(tz);
+    } else
         unsetenv("TZ");
     tzset();
     return ret;
-#else /* ANDROID */
+#elif defined(ANDROID)
     /* https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/os_compat_android.cc#L20 */
     static const time_t kTimeMax = ~(1L << (sizeof (time_t) * CHAR_BIT - 1));
     static const time_t kTimeMin = (1L << (sizeof (time_t) * CHAR_BIT - 1));
     time64_t result = timegm64(tm);
     if (result < kTimeMin || result > kTimeMax) return -1;
     return result;
-#endif /* ANDROID */
+#else
+    return timegm(tm);
+#endif
 }
-#endif /* _WIN32 */
 
-struct tm* cron_time(time_t* date, struct tm* out) {
-#ifdef __MINGW32__
+struct tm* cron_time_gm(time_t* date, struct tm* out) {
+#if defined(__MINGW32__)
     (void)(out); /* To avoid unused warning */
     return gmtime(date);
-#else /* !__MINGW32__ */
-#ifdef _WIN32
+#elif defined(_WIN32)
     errno_t err = gmtime_s(out, date);
     return 0 == err ? out : NULL;
 #elif defined(__AVR__)
     /* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
     gmtime_r(date, out);
     return out;
-#else /* !_WIN32 */
+#else
     return gmtime_r(date, out);
-#endif /* _WIN32 */
-#endif /* __MINGW32__ */
+#endif
 }
 
-#else /* CRON_USE_LOCAL_TIME */
-
-time_t cron_mktime(struct tm* tm) {
+time_t cron_mktime_local(struct tm* tm) {
     tm->tm_isdst = -1;
     return mktime(tm);
 }
 
-struct tm* cron_time(time_t* date, struct tm* out) {
-#ifdef _WIN32
+struct tm* cron_time_local(time_t* date, struct tm* out) {
+#if defined(_WIN32)
     errno_t err = localtime_s(out, date);
     return 0 == err ? out : NULL;
 #elif defined(__AVR__)
     /* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
     localtime_r(date, out);
     return out;
-#else /* _WIN32 */    
+#else
     return localtime_r(date, out);
-#endif /* _WIN32 */    
+#endif
+}
+
+/* Defining 'cron_' time functions to use use UTC (default) or local time */
+#ifndef CRON_USE_LOCAL_TIME
+time_t cron_mktime(struct tm* tm) {
+    return cron_mktime_gm(tm);
+}
+
+struct tm* cron_time(time_t* date, struct tm* out) {
+    return cron_time_gm(date, out);
+}
+
+#else /* CRON_USE_LOCAL_TIME */
+time_t cron_mktime(struct tm* tm) {
+    return cron_mktime_local(tm);
+}
+
+struct tm* cron_time(time_t* date, struct tm* out) {
+    return cron_time_local(date, out);
 }
 
 #endif /* CRON_USE_LOCAL_TIME */
+
+/**
+ * Functions.
+ */
 
 void cron_set_bit(uint8_t* rbyte, int idx) {
     uint8_t j = (uint8_t) (idx / 8);
