@@ -85,7 +85,7 @@ void cron_free(void* p);
 
 /* forward declarations for platforms that may need them */
 /* can be hidden in time.h */
-#if !defined(_WIN32) && !defined(__AVR__) && !defined(ESP8266) && !defined(ANDROID)
+#if !defined(_WIN32) && !defined(__AVR__) && !defined(ESP8266) && !defined(ESP_PLATFORM) && !defined(ANDROID)
 struct tm *gmtime_r(const time_t *timep, struct tm *result);
 time_t timegm(struct tm* __tp);
 struct tm *localtime_r(const time_t *timep, struct tm *result);
@@ -103,7 +103,7 @@ time_t cron_mktime_gm(struct tm* tm) {
 #elif defined(__AVR__)
 /* https://www.nongnu.org/avr-libc/user-manual/group__avr__time.html */
     return mk_gmtime(tm);
-#elif defined(ESP8266)
+#elif defined(ESP8266) || defined(ESP_PLATFORM)
     /* https://linux.die.net/man/3/timegm */
     /* http://www.catb.org/esr/time-programming/ */
     /* portable version of timegm() */
