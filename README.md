@@ -1,3 +1,7 @@
+Project archived
+================
+This project is no longer maintained, see its updated and extended fork in [exander77/supertinycron](https://github.com/exander77/supertinycron) repo.
+
 Cron expression parsing in ANSI C
 =================================
 
